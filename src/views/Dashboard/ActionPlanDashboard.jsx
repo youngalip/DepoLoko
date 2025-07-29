@@ -15,7 +15,12 @@ import {
   Paper, 
   Divider,
   Chip,
-  Stack
+  Stack,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  OutlinedInput
 } from '@mui/material';
 import { Pie, Bar } from 'react-chartjs-2';
 import GroupsIcon from '@mui/icons-material/Groups';
@@ -35,92 +40,11 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 // Dummy data for illustration (replace with your real data source)
 
 
-const actionPlanData = [
-  // Tim Flying Gang
-  { komponen: 'Relay GR', plan: 80, actual: 60, pic: 'TIM FLYING GANG' },
-  { komponen: 'Kompresor', plan: 90, actual: 75, pic: 'TIM FLYING GANG' },
-  { komponen: 'Plug PD2', plan: 85, actual: 70, pic: 'TIM FLYING GANG' },
-  { komponen: 'Wiper', plan: 70, actual: 50, pic: 'TIM FLYING GANG' },
-  { komponen: 'Pemasir', plan: 80, actual: 60, pic: 'TIM FLYING GANG' },
-  { komponen: 'Motor Blower', plan: 100, actual: 80, pic: 'TIM FLYING GANG' },
-  { komponen: 'EM2000', plan: 85, actual: 60, pic: 'TIM FLYING GANG' },
-  { komponen: 'BPCP', plan: 90, actual: 85, pic: 'TIM FLYING GANG' },
-  { komponen: 'MPIO', plan: 80, actual: 60, pic: 'TIM FLYING GANG' },
-  { komponen: 'Flexible Hose', plan: 80, actual: 65, pic: 'TIM FLYING GANG' },
-  { komponen: 'PSU 500', plan: 85, actual: 70, pic: 'TIM FLYING GANG' },
-  { komponen: 'PCM 500', plan: 90, actual: 80, pic: 'TIM FLYING GANG' },
-  { komponen: 'MPU', plan: 85, actual: 70, pic: 'TIM FLYING GANG' },
-  { komponen: 'IPM', plan: 80, actual: 60, pic: 'TIM FLYING GANG' },
-  { komponen: 'Power Supply Module', plan: 85, actual: 70, pic: 'TIM FLYING GANG' },
-  { komponen: 'VDCL', plan: 80, actual: 60, pic: 'TIM FLYING GANG' },
 
-  // Tim PRL
-  { komponen: 'IPM', plan: 85, actual: 60, pic: 'TIM PRL' },
-  { komponen: 'Blower Motor MG', plan: 80, actual: 60, pic: 'TIM PRL' },
-  { komponen: 'Dustbin Blower', plan: 85, actual: 70, pic: 'TIM PRL' },
-  { komponen: 'Fan Radiator', plan: 90, actual: 80, pic: 'TIM PRL' },
-  { komponen: 'Blower Traksi Motor', plan: 90, actual: 70, pic: 'TIM PRL' },
-  { komponen: 'Power Supply Module', plan: 85, actual: 60, pic: 'TIM PRL' },
 
-  // Tim Self Test
-  { komponen: 'PCM 500', plan: 80, actual: 60, pic: 'TIM SELF TEST' },
+// --- Semua fungsi filter, chart, dsb, harus pakai state actionPlanData ---
+// Semua dummy sudah dihapus. Mulai dari sini, seluruh akses data harus menggunakan state actionPlanData hasil fetch backend.
 
-  // Tim Revisi
-  { komponen: 'Blower Motor MG', plan: 80, actual: 60, pic: 'TIM REVISI' },
-  { komponen: 'Dustbin Blower', plan: 85, actual: 70, pic: 'TIM REVISI' },
-  { komponen: 'Fan Radiator', plan: 90, actual: 80, pic: 'TIM REVISI' },
-  { komponen: 'Blower Traksi Motor', plan: 90, actual: 70, pic: 'TIM REVISI' },
-
-  // Tim Truck
-  { komponen: 'Pemasir', plan: 80, actual: 60, pic: 'TIM TRUCK' },
-  { komponen: 'Roda', plan: 90, actual: 80, pic: 'TIM TRUCK' },
-
-  // Tim Elektrik
-  { komponen: 'Motor Blower', plan: 100, actual: 90, pic: 'TIM ELEKTRIK' },
-  { komponen: 'PSU 500', plan: 90, actual: 80, pic: 'TIM ELEKTRIK' },
-  { komponen: 'EFCO', plan: 85, actual: 70, pic: 'TIM ELEKTRIK' },
-  { komponen: 'Companion Alternator', plan: 80, actual: 65, pic: 'TIM ELEKTRIK' },
-  { komponen: 'EM2000', plan: 85, actual: 70, pic: 'TIM ELEKTRIK' },
-  { komponen: 'VDCL', plan: 80, actual: 60, pic: 'TIM ELEKTRIK' },
-  { komponen: 'Power Supply Module', plan: 85, actual: 70, pic: 'TIM ELEKTRIK' },
-  { komponen: 'PCM 500', plan: 90, actual: 80, pic: 'TIM ELEKTRIK' },
-  { komponen: 'MPU', plan: 85, actual: 70, pic: 'TIM ELEKTRIK' },
-  { komponen: 'Fuel Pump', plan: 80, actual: 75, pic: 'TIM ELEKTRIK' },
-  { komponen: 'Relay GR', plan: 80, actual: 70, pic: 'TIM ELEKTRIK' },
-  { komponen: 'IPM', plan: 85, actual: 80, pic: 'TIM ELEKTRIK' },
-  { komponen: 'MPIO', plan: 80, actual: 70, pic: 'TIM ELEKTRIK' },
-  { komponen: 'BPCP', plan: 90, actual: 85, pic: 'TIM ELEKTRIK' },
-
-  // Tim Engine
-  { komponen: 'Flexible Hose', plan: 80, actual: 70, pic: 'TIM ENGINE' },
-  { komponen: 'Water Pump', plan: 85, actual: 80, pic: 'TIM ENGINE' },
-  { komponen: 'Turbocharger', plan: 90, actual: 85, pic: 'TIM ENGINE' },
-  { komponen: 'Fuel Pump', plan: 80, actual: 75, pic: 'TIM ENGINE' },
-  { komponen: 'Power Assembly', plan: 90, actual: 85, pic: 'TIM ENGINE' },
-
-  // Tim Angin
-  { komponen: 'Wiper', plan: 70, actual: 60, pic: 'TIM ANGIN' },
-  { komponen: 'BPCP', plan: 90, actual: 80, pic: 'TIM ANGIN' },
-  { komponen: 'Kompresor', plan: 90, actual: 75, pic: 'TIM ANGIN' }
-];
-
-// Hitung persentase progres tiap tim secara dinamis
-function getTeamPercent(teamName) {
-  const data = actionPlanData.filter(d => d.pic === teamName);
-  if (!data.length) return 0;
-  const totalPlan = data.reduce((a, b) => a + b.plan, 0);
-  const totalActual = data.reduce((a, b) => a + b.actual, 0);
-  return Number(Math.min((totalActual / totalPlan) * 100, 100).toFixed(2));
-}
-
-// Fungsi untuk mengambil total plan dan actual per tim
-function getTeamTotal(teamName) {
-  const data = actionPlanData.filter(d => d.pic === teamName);
-  return {
-    plan: data.reduce((a, b) => a + b.plan, 0),
-    actual: data.reduce((a, b) => a + b.actual, 0)
-  };
-}
 
 const teamIcons = {
   'TIM FLYING GANG': <FlightTakeoffIcon sx={{ fontSize: 50, color: '#1976d2' }} />,
@@ -133,16 +57,8 @@ const teamIcons = {
   'TIM TRUCK': <DirectionsBusFilledIcon sx={{ fontSize: 50, color: '#607d8b' }} />,
 };
 
-const teams = [
-  { name: 'TIM FLYING GANG', percent: getTeamPercent('TIM FLYING GANG'), color: '#4CAF50' },
-  { name: 'TIM REVISI', percent: getTeamPercent('TIM REVISI'), color: '#4CAF50' },
-  { name: 'TIM ELEKTRIK', percent: getTeamPercent('TIM ELEKTRIK'), color: '#FFC107' },
-  { name: 'TIM ENGINE', percent: getTeamPercent('TIM ENGINE'), color: '#1976d2' },
-  { name: 'TIM ANGIN', percent: getTeamPercent('TIM ANGIN'), color: '#00bcd4' },
-  { name: 'TIM PRL', percent: getTeamPercent('TIM PRL'), color: '#8e24aa' },
-  { name: 'TIM SELF TEST', percent: getTeamPercent('TIM SELF TEST'), color: '#ff5722' },
-  { name: 'TIM TRUCK', percent: getTeamPercent('TIM TRUCK'), color: '#607d8b' }
-];
+// teams akan diinisialisasi di dalam komponen agar bisa akses state
+
 
 function getAchievement(data) {
   if (!data.length) return 0;
@@ -152,52 +68,112 @@ function getAchievement(data) {
   return Math.min(achievement, 100).toFixed(2); // Ensure max 100%
 }
 
-// Data detail aktivitas per tim, konsisten dengan actionPlanData
-import evidenceAktivitas from 'assets/images/evidence-aktivitas.jpg';
-const teamActivities = {
-  'TIM FLYING GANG': [
-    { tanggal: '2025-06-10', noLoko: 'CC 1302', komponen: 'Relay GR', aktivitas: 'Pemeriksaan Relay GR', evidence: evidenceAktivitas },
-    { tanggal: '2025-06-11', noLoko: 'CC 1302', komponen: 'Kompresor', aktivitas: 'Pemeriksaan Kompresor', evidence: '' },
-    { tanggal: '2025-06-12', noLoko: 'CC 1302', komponen: 'Plug PD2', aktivitas: 'Pemeriksaan Plug PD2', evidence: '' },
-    { tanggal: '2025-06-13', noLoko: 'CC 1302', komponen: 'Wiper', aktivitas: 'Pemeriksaan Wiper', evidence: '' },
-    { tanggal: '2025-06-14', noLoko: 'CC 1302', komponen: 'Pemasir', aktivitas: 'Pemeriksaan Pemasir', evidence: '' },
-    { tanggal: '2025-06-15', noLoko: 'CC 1302', komponen: 'Motor Blower', aktivitas: 'Pemeriksaan Motor Blower', evidence: '' },
-    { tanggal: '2025-06-16', noLoko: 'CC 1302', komponen: 'EM2000', aktivitas: 'Pemeriksaan EM2000', evidence: '' },
-    { tanggal: '2025-06-17', noLoko: 'CC 1302', komponen: 'BPCP', aktivitas: 'Pemeriksaan BPCP', evidence: '' },
-    { tanggal: '2025-06-18', noLoko: 'CC 1302', komponen: 'MPIO', aktivitas: 'Pemeriksaan MPIO', evidence: '' },
-    { tanggal: '2025-06-19', noLoko: 'CC 1302', komponen: 'Flexible Hose', aktivitas: 'Pemeriksaan Flexible Hose', evidence: '' },
-    { tanggal: '2025-06-20', noLoko: 'CC 1302', komponen: 'PSU 500', aktivitas: 'Pemeriksaan PSU 500', evidence: '' },
-    { tanggal: '2025-06-21', noLoko: 'CC 1302', komponen: 'PCM 500', aktivitas: 'Pemeriksaan PCM 500', evidence: '' },
-    { tanggal: '2025-06-22', noLoko: 'CC 1302', komponen: 'MPU', aktivitas: 'Pemeriksaan MPU', evidence: '' },
-    { tanggal: '2025-06-23', noLoko: 'CC 1302', komponen: 'IPM', aktivitas: 'Pemeriksaan IPM', evidence: '' },
-    { tanggal: '2025-06-24', noLoko: 'CC 1302', komponen: 'Power Supply Module', aktivitas: 'Pemeriksaan Power Supply Module', evidence: '' },
-    { tanggal: '2025-06-25', noLoko: 'CC 1302', komponen: 'VDCL', aktivitas: 'Pemeriksaan VDCL', evidence: '' }
-  ],
-  'TIM PRL': [
-    { tanggal: '2025-06-26', noLoko: 'CC 1304', komponen: 'IPM', aktivitas: 'Pemeriksaan IPM', evidence: '/src/assets/images/logo-kai.png' },
-    { tanggal: '2025-06-27', noLoko: 'CC 1304', komponen: 'Blower Motor MG', aktivitas: 'Pemeriksaan Blower Motor MG', evidence: '/src/assets/images/logo-kai.png' },
-    { tanggal: '2025-06-28', noLoko: 'CC 1304', komponen: 'Dustbin Blower', aktivitas: 'Pemeriksaan Dustbin Blower', evidence: '/src/assets/images/logo-kai.png' },
-    { tanggal: '2025-06-29', noLoko: 'CC 1304', komponen: 'Fan Radiator', aktivitas: 'Pemeriksaan Fan Radiator', evidence: '/src/assets/images/logo-kai.png' },
-    { tanggal: '2025-06-30', noLoko: 'CC 1304', komponen: 'Blower Traksi Motor', aktivitas: 'Pemeriksaan Blower Traksi Motor', evidence: '/src/assets/images/logo-kai.png' },
-    { tanggal: '2025-07-01', noLoko: 'CC 1304', komponen: 'Power Supply Module', aktivitas: 'Pemeriksaan Power Supply Module', evidence: '/src/assets/images/logo-kai.png' }
-  ],
-  'TIM SELF TEST': [
-    { tanggal: '2025-07-02', noLoko: 'CC 1305', komponen: 'PCM 500', aktivitas: 'Pemeriksaan PCM 500', evidence: '/src/assets/images/logo-kai.png' }
-  ]
-};
+// Data detail aktivitas per tim kini diambil dari actionPlanData (bukan dummy)
+// Evidence akan diambil dari field foto_path/foto jika ada di backend, jika tidak tampilkan '-'.
 
-function getTeamActivities(team) {
-  return teamActivities[team] || [];
-}
+
+
+
 
 function ActionPlanDashboard() {
+  const [actionPlanData, setActionPlanData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [selectedTeam, setSelectedTeam] = useState('');
   const [showDetail, setShowDetail] = useState(false);
+  const [selectedComponents, setSelectedComponents] = useState([]);
 
-  // Filter data by team
-  const filteredData = selectedTeam
-    ? actionPlanData.filter((d) => d.pic && d.pic.toLowerCase().includes(selectedTeam.toLowerCase().replace('tim ', '')))
-    : actionPlanData;
+  // Fungsi untuk filter aktivitas tim, harus di dalam komponen agar akses state
+  function getTeamActivities(team) {
+    return actionPlanData.filter(row => row.pic === team);
+  }
+  
+  // Fetch data dari backend saat mount
+  React.useEffect(() => {
+    const fetchActionPlan = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await fetch('/api/action-plan');
+        const data = await res.json();
+        setActionPlanData(Array.isArray(data) ? data : []);
+      } catch (err) {
+        setError('Gagal mengambil data action plan');
+        setActionPlanData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchActionPlan();
+  }, []);
+
+  // Fungsi hitung progres per tim
+  function getTeamPercent(teamName) {
+    const data = actionPlanData.filter(d => d.pic === teamName);
+    if (!data.length) return 0;
+    const totalPlan = data.reduce((a, b) => a + b.plan, 0);
+    const totalActual = data.reduce((a, b) => a + b.actual, 0);
+    return Number(Math.min((totalActual / totalPlan) * 100, 100).toFixed(2));
+  }
+
+  // Fungsi total plan/actual per tim
+  function getTeamTotal(teamName) {
+    const data = actionPlanData.filter(d => d.pic === teamName);
+    return {
+      plan: data.reduce((a, b) => a + b.plan, 0),
+      actual: data.reduce((a, b) => a + b.actual, 0)
+    };
+  }
+
+  // Fungsi achievement
+  function getAchievement(data) {
+    if (!data.length) return 0;
+    const totalPlan = data.reduce((a, b) => a + b.plan, 0);
+    const totalActual = data.reduce((a, b) => a + b.actual, 0);
+    const achievement = totalPlan ? (totalActual / totalPlan) * 100 : 0;
+    return Math.min(achievement, 100).toFixed(2); // Ensure max 100%
+  }
+
+  // Inisialisasi teams di dalam komponen
+  const teams = [
+    { name: 'TIM FLYING GANG', percent: getTeamPercent('TIM FLYING GANG'), color: '#4CAF50' },
+    { name: 'TIM REVISI', percent: getTeamPercent('TIM REVISI'), color: '#4CAF50' },
+    { name: 'TIM ELEKTRIK', percent: getTeamPercent('TIM ELEKTRIK'), color: '#FFC107' },
+    { name: 'TIM ENGINE', percent: getTeamPercent('TIM ENGINE'), color: '#1976d2' },
+    { name: 'TIM ANGIN', percent: getTeamPercent('TIM ANGIN'), color: '#00bcd4' },
+    { name: 'TIM PRL', percent: getTeamPercent('TIM PRL'), color: '#8e24aa' },
+    { name: 'TIM SELF TEST', percent: getTeamPercent('TIM SELF TEST'), color: '#ff5722' },
+    { name: 'TIM TRUCK', percent: getTeamPercent('TIM TRUCK'), color: '#607d8b' }
+  ];
+
+  // Get unique components for filter
+  const uniqueComponents = [...new Set(actionPlanData.map(item => item.komponen))].sort();
+
+  // Handle component filter change
+  const handleComponentFilterChange = (component) => {
+    setSelectedComponents(prev => 
+      prev.includes(component) 
+        ? prev.filter(c => c !== component)
+        : [...prev, component]
+    );
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSelectedComponents([]);
+  };
+
+  // Select all components
+  const selectAllComponents = () => {
+    setSelectedComponents(uniqueComponents);
+  };
+
+  // Filter data by team and selected components
+  const filteredData = actionPlanData.filter(item => {
+    const teamMatch = selectedTeam ? item.pic === selectedTeam : true;
+    const componentMatch = selectedComponents.length === 0 || selectedComponents.includes(item.komponen);
+    return teamMatch && componentMatch;
+  });
 
   // Achievement data
   const achievement = getAchievement(filteredData);
@@ -207,7 +183,7 @@ function ActionPlanDashboard() {
     labels: ['Achievement', 'Remaining'],
     datasets: [{
       data: [achievement, 100 - achievement],
-      backgroundColor: ['#4CAF50', '#E0E0E0'],
+      backgroundColor: ['#2196f3', '#ff5757'],
       borderWidth: 0,
       cutout: '70%'
     }]
@@ -221,16 +197,16 @@ function ActionPlanDashboard() {
         type: 'bar',
         label: 'Plan',
         data: filteredData.map((d) => d.plan),
-        backgroundColor: '#1976d2',
-        borderRadius: 4,
+        backgroundColor: '#ff5757',
+        borderRadius: 2,
         barPercentage: 0.5,
       },
       {
         type: 'bar',
         label: 'Actual',
         data: filteredData.map((d) => d.actual),
-        backgroundColor: '#ff9800',
-        borderRadius: 4,
+        backgroundColor: '#2196f3',
+        borderRadius: 2,
         barPercentage: 0.5,
       },
       {
@@ -314,9 +290,19 @@ function ActionPlanDashboard() {
   return (
     <Box p={2}>
       {/* Header */}
-      <Box mb={3}>
-        <Typography variant="h5" fontWeight={700}>Monitoring Action Plan</Typography>
-        <Typography variant="body2" color="textSecondary">Realisasi Pekerjaan Per Komponen</Typography>
+      <Box sx={{ position: 'relative', mb: 4 }}>
+        <Card sx={{ background: '#f8fafc', color: '#2196f3', borderRadius: 4, boxShadow: '0 8px 32px 0 rgba(13,41,86,0.08)' }}>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', minHeight: 120, px: { xs: 2, md: 5 }, py: { xs: 3, md: 4 } }}>
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h4" fontWeight={700} sx={{ color: '#1e3a8a', mb: 1 }}>
+                Monitoring Action Plan
+              </Typography>
+              <Typography variant="body1" sx={{ color: '#334155' }}>
+                Realisasi Pekerjaan Per Komponen
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
       </Box>
 
       <Grid container spacing={2}>
@@ -358,55 +344,108 @@ function ActionPlanDashboard() {
           </Card>
         </Grid>
 
+        
+
         {/* Tabel Action Plan Komponen */}
         <Grid item xs={12}>
           <Card sx={{ mt: 2 }}>
             <CardContent>
-              <Typography variant="subtitle1" fontWeight={700} mb={2} sx={{ color: '#fff', bgcolor: '#1976d2', px: 2, py: 1, borderRadius: 1 }}>
+              <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                <FormControl sx={{ minWidth: 170, maxWidth: 1200 }}>
+                  <InputLabel>Filter Komponen</InputLabel>
+                  <Select
+                    multiple
+                    value={selectedComponents}
+                    onChange={(event) => setSelectedComponents(event.target.value)}
+                    input={<OutlinedInput label="Filter Komponen" />}
+                    renderValue={(selected) => (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {selected.map((value) => (
+                          <Chip key={value} label={value} size="small" />
+                        ))}
+                      </Box>
+                    )}
+                    MenuProps={{
+                      PaperProps: {
+                        style: {
+                          maxHeight: 300,
+                          width: 400,
+                        },
+                      },
+                    }}
+                  >
+                    {uniqueComponents.map((component) => (
+                      <MenuItem key={component} value={component}>
+                        {component}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Button 
+                  size="small" 
+                  variant="outlined" 
+                  onClick={selectAllComponents}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Pilih Semua
+                </Button>
+                <Button 
+                  size="small" 
+                  variant="outlined" 
+                  onClick={clearAllFilters}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Hapus Filter
+                </Button>
+                <Typography variant="body2" color="textSecondary">
+                  ({selectedComponents.length} dari {uniqueComponents.length} komponen dipilih)
+                </Typography>
+              </Box>
+              <Typography variant="subtitle1" fontWeight={700} mb={2} sx={{ color: '#fff', background: 'linear-gradient(315deg, #5de0e6, #2563eb)', px: 2, py: 1, borderRadius: 1 }}>
                 TABEL REALISASI ACTION PLAN TIAP KOMPONEN
               </Typography>
-              <TableContainer component={Paper} sx={{ boxShadow: 0, borderRadius: 2, maxHeight: 440 }}>
-  <Table size="small" sx={{ width: '100%' }}>
+              <TableContainer component={Paper} sx={{ boxShadow: 0, borderRadius: 2, maxHeight: 400 }}>
+                <Table size="small" sx={{ width: '100%' }} stickyHeader>
                   <TableHead>
-                    <TableRow sx={{ bgcolor: '#1976d2' }}>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>No</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>Komponen</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>Lagging Indicator</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>Leading Indicator</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>Target</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>PIC</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>Plan</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>Actual</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>Realisasi (%)</TableCell>
+                    <TableRow sx={{ background: '#2196f3' }}>
+                      <TableCell sx={{ color: '#fff', fontWeight: 700, bgcolor: '#2196f3', position: 'sticky', top: 0, zIndex: 1 }}>No</TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 700, bgcolor: '#2196f3', position: 'sticky', top: 0, zIndex: 1 }}>Komponen</TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 700, bgcolor: '#2196f3', position: 'sticky', top: 0, zIndex: 1 }}>Lagging Indicator</TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 700, bgcolor: '#2196f3', position: 'sticky', top: 0, zIndex: 1 }}>Leading Indicator</TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 700, bgcolor: '#2196f3', position: 'sticky', top: 0, zIndex: 1 }}>Target</TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 700, bgcolor: '#2196f3', position: 'sticky', top: 0, zIndex: 1 }}>PIC</TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 700, bgcolor: '#2196f3', position: 'sticky', top: 0, zIndex: 1 }}>Plan</TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 700, bgcolor: '#2196f3', position: 'sticky', top: 0, zIndex: 1 }}>Actual</TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 700, bgcolor: '#2196f3', position: 'sticky', top: 0, zIndex: 1 }}>Realisasi (%)</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {actionPlanData.map((row, idx) => (
+                    {filteredData.map((row, idx) => (
                       <TableRow key={idx} sx={{ bgcolor: idx % 2 === 0 ? '#f5f7fa' : '#fff' }}>
                         <TableCell sx={{ fontSize: 12, py: 0.5 }}>{idx+1}</TableCell>
                         <TableCell sx={{ fontSize: 12, py: 0.5 }}>{row.komponen}</TableCell>
-<TableCell sx={{ fontSize: 12, py: 0.5 }}>{row.lagging || 'Contoh lagging...'}</TableCell>
-<TableCell sx={{ fontSize: 12, py: 0.5 }}>{row.leading || 'Contoh leading...'}</TableCell>
-<TableCell sx={{ fontSize: 12, py: 0.5 }}>{row.target || 'Setiap Perawatan'}</TableCell>
-<TableCell sx={{ fontSize: 12, py: 0.5 }}>{row.pic || 'Engine'}</TableCell>
-<TableCell sx={{ fontSize: 12, py: 0.5 }}>{row.plan}</TableCell>
-<TableCell sx={{ fontSize: 12, py: 0.5 }}>{row.actual}</TableCell>
-<TableCell sx={{ fontSize: 12, py: 0.5 }}>
-  {(() => {
-    let percent = 0;
-    if (typeof row.actual === 'number' && typeof row.plan === 'number' && row.plan > 0) {
-      percent = Math.min((row.actual / row.plan) * 100, 100);
-      percent = Number(percent.toFixed(2));
-    }
-    return (
-      <Chip 
-        label={percent + '%'}
-        color={percent >= 90 ? 'success' : percent >= 70 ? 'warning' : 'error'}
-        sx={{ fontWeight: 700, fontSize: 12, height: 22 }}
-      />
-    );
-  })()}
-</TableCell>
+                        <TableCell sx={{ fontSize: 12, py: 0.5 }}>{row.lagging || 'Contoh lagging...'}</TableCell>
+                        <TableCell sx={{ fontSize: 12, py: 0.5 }}>{row.leading || 'Contoh leading...'}</TableCell>
+                        <TableCell sx={{ fontSize: 12, py: 0.5 }}>{row.target || 'Setiap Perawatan'}</TableCell>
+                        <TableCell sx={{ fontSize: 12, py: 0.5 }}>{row.pic}</TableCell>
+                        <TableCell sx={{ fontSize: 12, py: 0.5 }}>{row.plan}</TableCell>
+                        <TableCell sx={{ fontSize: 12, py: 0.5 }}>{row.actual}</TableCell>
+                        <TableCell sx={{ fontSize: 12, py: 0.5 }}>
+                          {(() => {
+                            let percent = 0;
+                            if (typeof row.actual === 'number' && typeof row.plan === 'number' && row.plan > 0) {
+                              percent = Math.min((row.actual / row.plan) * 100, 100);
+                              percent = Number(percent.toFixed(2));
+                            }
+                            return (
+                              <Chip 
+                                label={percent + '%'}
+                                color={percent >= 90 ? 'success' : percent >= 70 ? 'warning' : 'error'}
+                                sx={{ fontWeight: 700, fontSize: 12, height: 22 }}
+                              />
+                            );
+                          })()}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -422,44 +461,58 @@ function ActionPlanDashboard() {
             <CardContent>
               <Typography variant="subtitle1" fontWeight={600} mb={2}>PERFORMA TIAP TIM</Typography>
               <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 1 }}>
-  {teams.map((team, index) => (
-    <Card 
-      key={team.name}
-      variant="outlined"
-      sx={{
-        minWidth: 180,
-        maxWidth: 220,
-        borderLeft: `4px solid ${team.color}`,
-        borderRadius: 2,
-        boxShadow: 0,
-        mb: 2,
-        minHeight: 180,
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        flexShrink: 0
-      }}
-    >
-      <CardContent sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 2 }}>
-        <Box sx={{ mb: 2.5, mt: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          {teamIcons[team.name]}
-        </Box>
-        <Typography variant="subtitle2" fontWeight={600} sx={{ textAlign: 'center' }}>{team.name}</Typography>
-        <Typography variant="h6" fontWeight={700} sx={{ textAlign: 'center' }}>{team.percent}%</Typography>
-        <Box sx={{ mb: 1 }}>
-          <Typography variant="caption" color="textSecondary" sx={{ textAlign: 'center' }}>
-            Plan: {getTeamTotal(team.name).plan} | Actual: {getTeamTotal(team.name).actual}
-          </Typography>
-        </Box>
-        <Button size="small" variant="contained" sx={{ mt: 1 }} onClick={() => { setSelectedTeam(team.name); setShowDetail(true); }}>
-          Detail
-        </Button>
-      </CardContent>
-    </Card>
-  ))}
-</Box>
+                {teams.map((team, index) => (
+                  <Card 
+                    key={team.name}
+                    variant="outlined"
+                    sx={{
+                      minWidth: 180,
+                      maxWidth: 220,
+                      borderLeft: `4px solid ${team.color}`,
+                      borderRadius: 2,
+                      boxShadow: 0,
+                      mb: 2,
+                      minHeight: 180,
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      flexShrink: 0
+                    }}
+                  >
+                    <CardContent sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+                      <Box sx={{ mb: 2.5, mt: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        {teamIcons[team.name]}
+                      </Box>
+                      <Typography variant="subtitle2" fontWeight={600} sx={{ textAlign: 'center' }}>{team.name}</Typography>
+                      <Typography variant="h6" fontWeight={700} sx={{ textAlign: 'center' }}>{team.percent}%</Typography>
+                      <Box sx={{ mb: 1 }}>
+                        <Typography variant="caption" color="textSecondary" sx={{ textAlign: 'center' }}>
+                          Plan: {getTeamTotal(team.name).plan} | Actual: {getTeamTotal(team.name).actual}
+                        </Typography>
+                      </Box>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        sx={{
+                          mt: 1,
+                          background: 'linear-gradient(135deg, #5de0e6, #2563eb)',
+                          color: '#fff',
+                          fontWeight: 600,
+                          textTransform: 'none', // agar label tetap "Detail" tidak kapital semua
+                          '&:hover': {
+                            background: 'linear-gradient(135deg, #4ecdc4, #1d4ed8)', // optional hover
+                          },
+                        }}
+                        onClick={() => { setSelectedTeam(team.name); setShowDetail(true); }}
+                      >
+                        Detail
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
             </CardContent>
           </Card>
         </Grid>
@@ -473,10 +526,17 @@ function ActionPlanDashboard() {
               <Typography variant="h6" fontWeight={700}>
                 Detail Aktivitas - {selectedTeam}
               </Typography>
-              <Button 
-                variant="outlined" 
-                size="small" 
+              <Button
+                variant="outlined"
+                size="small"
                 onClick={() => setShowDetail(false)}
+                sx={{
+                  mt: 1,
+                  background: 'linear-gradient(135deg, #5de0e6, #2563eb)',
+                  color: '#fff',
+                  fontWeight: 600,
+                  textTransform: 'none', // agar label tetap "Detail" tidak kapital semua
+                }}
               >
                 Tutup
               </Button>
@@ -485,7 +545,7 @@ function ActionPlanDashboard() {
             <TableContainer component={Paper} sx={{ borderRadius: 2, mb: 1 }}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ bgcolor: '#ffecb3' }}>
+                  <TableRow sx={{ bgcolor: '#8bb6ff' }}>
                     <TableCell sx={{ fontWeight: 700 }}>Tanggal</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>No Loko</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Komponen</TableCell>
@@ -494,20 +554,22 @@ function ActionPlanDashboard() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {getTeamActivities(selectedTeam).map((row, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>{row.tanggal}</TableCell>
-                      <TableCell>{row.noLoko}</TableCell>
-                      <TableCell>{row.komponen}</TableCell>
-                      <TableCell>{row.aktivitas}</TableCell>
-                      <TableCell>
-                        {row.evidence ? (
-                          <img src={row.evidence} alt="evidence" style={{ width: 48, height: 32, objectFit: 'cover', borderRadius: 4 }} />
-                        ) : '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
+  {getTeamActivities(selectedTeam).map((row, idx) => (
+    <TableRow key={idx}>
+      <TableCell>{row.tanggal || row.tanggal_aktivitas || row.target_date || '-'}</TableCell>
+      <TableCell>{row.noLoko || row.nomor_lokomotif || '-'}</TableCell>
+      <TableCell>{row.komponen || '-'}</TableCell>
+      <TableCell>{row.aktivitas || row.keterangan || '-'}</TableCell>
+      <TableCell>
+        {row.foto_path ? (
+          <img src={row.foto_path} alt="evidence" style={{ width: 48, height: 32, objectFit: 'cover', borderRadius: 4 }} />
+        ) : (
+          row.foto ? <img src={row.foto} alt="evidence" style={{ width: 48, height: 32, objectFit: 'cover', borderRadius: 4 }} /> : '-'
+        )}
+      </TableCell>
+    </TableRow>
+  ))}
+</TableBody>
               </Table>
             </TableContainer>
             {getTeamActivities(selectedTeam).length === 0 && (

@@ -11,6 +11,8 @@ import { Provider } from 'react-redux';
 
 // project import
 import App from 'layout/App';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import reducer from 'store/reducer';
 import * as serviceWorker from 'serviceWorker';
 
@@ -23,7 +25,9 @@ const root = createRoot(document.getElementById('root'));
 root.render(
   <Provider store={store}>
     <BrowserRouter basename={import.meta.env.VITE_APP_BASE_NAME}>
-      <App />
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <App />
+      </LocalizationProvider>
     </BrowserRouter>
   </Provider>
 );

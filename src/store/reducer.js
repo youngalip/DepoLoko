@@ -1,13 +1,11 @@
 // third party
 import { combineReducers } from 'redux';
-
-// project import
 import customizationReducer from './customizationReducer';
-
-// ==============================|| REDUCER ||============================== //
+import authReducer from './authSlice';
 
 const reducer = combineReducers({
-  customization: customizationReducer
+  customization: customizationReducer,
+  auth: authReducer
 });
 
 export default reducer;

@@ -31,29 +31,41 @@ const Sidebar = ({ drawerOpen, drawerToggle, window }) => {
   const drawer = (
     <>
       <Box sx={{ display: { md: 'none', xs: 'block' } }}>
-  <Grid
-    container
-    direction="row"
-    justifyContent="center"
-    elevation={5}
-    alignItems="center"
-    spacing={0}
-    sx={{
-      ...theme.mixins.toolbar,
-      lineHeight: 0,
-      background: '#111', // hitam solid
-      boxShadow: '0px 2px 4px -1px rgba(0,0,0,0.2), 0px 4px 5px 0px rgba(0,0,0,0.14), 0px 1px 10px 0px rgba(0,0,0,0.12)'
-    }}
-  >
-    <Grid item>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1, backgroundColor: '#111' }}>
-        <img src={logo} alt="Logo" style={{ height: 80, background: 'transparent', padding: 0, borderRadius: 0, boxShadow: 'none' }} />
+        <Grid
+          container
+          direction="row"
+          justifyContent="center"
+          elevation={5}
+          alignItems="center"
+          spacing={0}
+          sx={{
+            ...theme.mixins.toolbar,
+            lineHeight: 0,
+            background: 'linear-gradient(135deg, #5de0e6, #2563eb)', // hitam solid
+            boxShadow: '0px 2px 4px -1px rgba(0,0,0,0.2), 0px 4px 5px 0px rgba(0,0,0,0.14), 0px 1px 10px 0px rgba(0,0,0,0.12)'
+          }}
+        >
+          <Grid item>
+            <Box sx={{ 
+                  height: { xs:56, sm: 50},
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1, 
+                  py: 1, 
+                }}>
+              <img src={logo} alt="Logo" style={{ height: 65, background: 'transparent', padding: 0, borderRadius: 0, boxShadow: 'none' }} />
+            </Box>
+          </Grid>
+        </Grid>
       </Box>
-    </Grid>
-  </Grid>
-</Box>
       <Divider />
-      <PerfectScrollbar style={{ height: 'calc(100vh - 65px)', padding: '10px' }}>
+      <PerfectScrollbar style={{ 
+                            height: 'calc(100vh - 64px)', // default untuk mobile
+                            [theme.breakpoints.up('sm')]: {
+                              height: 'calc(100vh - 72px)' // untuk layar sm ke atas
+                            },
+                            padding: '10px' 
+                            }}>
         <MenuList />
         
       </PerfectScrollbar>
@@ -75,7 +87,7 @@ const Sidebar = ({ drawerOpen, drawerToggle, window }) => {
             width: drawerWidth,
             borderRight: 'none',
             boxShadow: '0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15)',
-            top: { md: 64, sm: 0 }
+            top: { md: 64, sm: 64 }
           }
         }}
         ModalProps={{ keepMounted: true }}

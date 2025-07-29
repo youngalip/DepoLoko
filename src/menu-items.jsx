@@ -13,6 +13,8 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import CallOutlinedIcon from '@mui/icons-material/CallOutlined';
 import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
+import CopyrightOutlinedIcon from '@mui/icons-material/CopyrightOutlined';
+
 
 const icons = {
   HomeOutlinedIcon,
@@ -25,6 +27,7 @@ const icons = {
   SettingsOutlinedIcon,
   CallOutlinedIcon,
   HelpOutlineOutlinedIcon,
+  CopyrightOutlinedIcon,
   LogoutOutlinedIcon
 };
 
@@ -46,37 +49,43 @@ export default {
           title: 'Monitoring Action Plan',
           type: 'item',
           icon: icons['AssessmentOutlinedIcon'],
-          url: '/action-plan'
+          url: '/dashboard/action-plan'
         },
         {
           id: 'pantauan-roda-cc205',
           title: 'Pantauan Roda CC205',
           type: 'item',
           icon: icons['DirectionsRailwayFilledIcon'],
-          url: '/pantauan-roda-cc205'
+          url: '/dashboard/pantauan-roda-cc205'
         },
         {
           id: 'rekap-fasilitas',
           title: 'Rekap Data Fasilitas',
           type: 'item',
           icon: icons['TableChartOutlinedIcon'],
-          url: '/rekap-fasilitas'
+          url: '/dashboard/rekap-fasilitas'
         },
         {
           id: 'manpower',
           title: 'Manpower Data',
           type: 'item',
           icon: icons['GroupOutlinedIcon'],
-          url: '/manpower-data-manage'
+          url: '/dashboard/manpower-data-manage'
+        },
+        {
+          id: 'component-usage',
+          title: 'Component Usage',
+          type: 'item',
+          icon: icons['TableChartOutlinedIcon'],
+          url: '/dashboard/component-usage'
         },
         {
           id: 'input-data',
-          title: 'Input Data Dashboard',
+          title: 'Input Data Multi-Kategori',
           type: 'item',
           icon: icons['InputOutlinedIcon'],
-          url: '/input-data'
+          url: '/dashboard/input-data-multi-kategori'
         },
-        { type: 'divider' },
         {
           id: 'account',
           title: 'Account',
@@ -85,33 +94,18 @@ export default {
           url: '/account'
         },
         {
-          id: 'settings',
-          title: 'Settings',
+          id: 'copyright',
+          title: '2025 KAI Divre IV',
           type: 'item',
-          icon: icons['SettingsOutlinedIcon'],
-          url: '/settings'
-        },
-        { type: 'divider' },
-        {
-          id: 'call-center',
-          title: 'Call Center',
-          type: 'item',
-          icon: icons['CallOutlinedIcon'],
-          url: '/call-center'
-        },
-        {
-          id: 'help',
-          title: 'Help',
-          type: 'item',
-          icon: icons['HelpOutlineOutlinedIcon'],
-          url: '/help'
+          icon: icons['CopyrightOutlinedIcon'],
+          url: '#',
         },
         {
           id: 'logout',
           title: 'Log Out',
           type: 'item',
           icon: icons['LogoutOutlinedIcon'],
-          url: '/logout'
+          url: '/login-user'
         }
       ]
     }
