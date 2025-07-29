@@ -9,6 +9,10 @@ const ActionPlanDashboard = Loadable(lazy(() => import('views/Dashboard/ActionPl
 const PantauanRodaCC205 = Loadable(lazy(() => import('views/Dashboard/PantauanRodaCC205')));
 const RekapDataFasilitas = Loadable(lazy(() => import('views/Dashboard/RekapDataFasilitas')));
 const ManpowerDataManage = Loadable(lazy(() => import('views/Dashboard/ManpowerDataManage')));
+const FaultHistory = Loadable(lazy(() => import('views/Dashboard/FaultHistory'))); // ✅ Tambahkan ini
+const ComponentUsage = Loadable(lazy(() => import('views/Dashboard/ComponentUsage')));
+const PerformanceHistory = Loadable(lazy(() => import('views/Dashboard/PerformanceHistory')));
+
 
 const MainRoutes = {
   path: '/',
@@ -30,9 +34,10 @@ const MainRoutes = {
       path: '/pantauan-roda-cc205',
       element: <PantauanRodaCC205 />
     },
-    { 
-      path: '/rekap-fasilitas', 
-      element: <RekapDataFasilitas /> },
+    {
+      path: '/rekap-fasilitas',
+      element: <RekapDataFasilitas />
+    },
     {
       path: '/action-plan',
       element: <ActionPlanDashboard />
@@ -40,6 +45,18 @@ const MainRoutes = {
     {
       path: '/manpower-data-manage',
       element: <ManpowerDataManage />
+    },
+    {
+      path: '/fault-history',
+      element: <FaultHistory />
+    },
+    {
+      path: '/component-usage',
+      element: <ComponentUsage />
+    },
+    {
+      path: '/performance-history',
+      element: <PerformanceHistory />
     }
   ]
 };

@@ -1,4 +1,3 @@
-
 // ==============================|| MENU ITEMS ||============================== //
 
 // eslint-disable-next-line
@@ -13,6 +12,8 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import CallOutlinedIcon from '@mui/icons-material/CallOutlined';
 import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'; // ✅ Fault icon
+import ListAltOutlinedIcon from '@mui/icons-material/ListAltOutlined'; // ✅ Component Usage icon
 
 const icons = {
   HomeOutlinedIcon,
@@ -25,7 +26,9 @@ const icons = {
   SettingsOutlinedIcon,
   CallOutlinedIcon,
   HelpOutlineOutlinedIcon,
-  LogoutOutlinedIcon
+  LogoutOutlinedIcon,
+  WarningAmberOutlinedIcon,
+  ListAltOutlinedIcon // ✅ daftarkan icon baru
 };
 
 export default {
@@ -69,6 +72,28 @@ export default {
           icon: icons['GroupOutlinedIcon'],
           url: '/manpower-data-manage'
         },
+        {
+          id: 'fault-history',
+          title: 'Fault History',
+          type: 'item',
+          icon: icons['WarningAmberOutlinedIcon'],
+          url: '/fault-history'
+        },
+        {
+          id: 'component-usage',
+          title: 'Component Usage',
+          type: 'item',
+          icon: icons['ListAltOutlinedIcon'], // ✅ Icon untuk component usage
+          url: '/component-usage' // ✅ pastikan path sesuai dengan MainRoutes.jsx
+        },
+        {
+          id: 'performance-history',
+          title: 'Performance History',
+          type: 'item',
+          icon: icons['AssessmentOutlinedIcon'],
+          url: '/performance-history'
+        },
+
         {
           id: 'input-data',
           title: 'Input Data Dashboard',
