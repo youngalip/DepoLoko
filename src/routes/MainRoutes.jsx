@@ -3,6 +3,7 @@ import React, { lazy } from 'react';
 // project import
 import MainLayout from 'layout/MainLayout';
 import Loadable from 'component/Loadable';
+import { Navigate } from 'react-router-dom';
 
 const DashboardDefault = Loadable(lazy(() => import('views/Dashboard/Default')));
 const ActionPlanDashboard = Loadable(lazy(() => import('views/Dashboard/ActionPlanDashboard')));
@@ -13,37 +14,58 @@ const FaultHistory = Loadable(lazy(() => import('views/Dashboard/FaultHistory'))
 const ComponentUsage = Loadable(lazy(() => import('views/Dashboard/ComponentUsage')));
 const PerformanceHistory = Loadable(lazy(() => import('views/Dashboard/PerformanceHistory')));
 
+const InputDataMultiKategori = Loadable(lazy(() => import('views/Dashboard/InputDataMultiKategori')));
 
-const MainRoutes = {
-  path: '/',
-  element: <MainLayout />,
+const LoginUser = Loadable(lazy(() => import('views/Auth/LoginUser')));
+const LoginAdmin = Loadable(lazy(() => import('views/Auth/LoginAdmin')));
+const RegisterUser = Loadable(lazy(() => import('views/Auth/RegisterUser')));
+
+const MainRoutes = [
+  {
+    path: '/',
+    element: <Navigate to="/login-user" replace />
+  },
+  {
+    path: '/login-user',
+    element: <LoginUser />
+  },
+  {
+    path: '/register-user',
+    element: <RegisterUser />
+  },
+  {
+    path: '/login-admin',
+    element: <LoginAdmin />
+  },
+  {
+    path: '/dashboard',
+    element: <MainLayout />,
   children: [
     {
-      path: '/',
+      path: '', // dashboard home
       element: <DashboardDefault />
     },
     {
-      path: '/dashboard/default',
+      path: 'default',
       element: <DashboardDefault />
     },
     {
-      path: '/default',
-      element: <DashboardDefault />
-    },
-    {
-      path: '/pantauan-roda-cc205',
+      path: 'pantauan-roda-cc205',
       element: <PantauanRodaCC205 />
     },
+    { 
+      path: 'rekap-fasilitas', 
+      element: <RekapDataFasilitas /> },
     {
-      path: '/rekap-fasilitas',
-      element: <RekapDataFasilitas />
-    },
-    {
-      path: '/action-plan',
+      path: 'action-plan',
       element: <ActionPlanDashboard />
     },
     {
-      path: '/manpower-data-manage',
+      path: 'input-data-multi-kategori',
+      element: <InputDataMultiKategori />
+    },
+    {
+      path: 'manpower-data-manage',
       element: <ManpowerDataManage />
     },
     {
@@ -59,6 +81,7 @@ const MainRoutes = {
       element: <PerformanceHistory />
     }
   ]
-};
+  }
+];
 
 export default MainRoutes;
