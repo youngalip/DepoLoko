@@ -6,6 +6,8 @@ import CssBaseline from '@mui/material/CssBaseline';
 
 // third-party
 import { useSelector } from 'react-redux';
+import { LocalizationProvider } from '@mui/x-date-pickers'; // ✅ Tambah ini
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'; // ✅ Tambah ini
 
 // project import
 import theme from 'themes';
@@ -23,8 +25,10 @@ const App = () => {
       <NavigationScroll>
         <StyledEngineProvider injectFirst>
           <ThemeProvider theme={theme(customization)}>
-            <CssBaseline />
-            <Routes />
+            <LocalizationProvider dateAdapter={AdapterDateFns}> {/* ✅ Bungkus di sini */}
+              <CssBaseline />
+              <Routes />
+            </LocalizationProvider>
           </ThemeProvider>
         </StyledEngineProvider>
       </NavigationScroll>

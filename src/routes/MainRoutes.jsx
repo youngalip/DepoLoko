@@ -10,8 +10,11 @@ const ActionPlanDashboard = Loadable(lazy(() => import('views/Dashboard/ActionPl
 const PantauanRodaCC205 = Loadable(lazy(() => import('views/Dashboard/PantauanRodaCC205')));
 const RekapDataFasilitas = Loadable(lazy(() => import('views/Dashboard/RekapDataFasilitas')));
 const ManpowerDataManage = Loadable(lazy(() => import('views/Dashboard/ManpowerDataManage')));
-const InputDataMultiKategori = Loadable(lazy(() => import('views/Dashboard/InputDataMultiKategori')));
+const FaultHistory = Loadable(lazy(() => import('views/Dashboard/FaultHistory'))); // ✅ Tambahkan ini
 const ComponentUsage = Loadable(lazy(() => import('views/Dashboard/ComponentUsage')));
+const PerformanceHistory = Loadable(lazy(() => import('views/Dashboard/PerformanceHistory')));
+
+const InputDataMultiKategori = Loadable(lazy(() => import('views/Dashboard/InputDataMultiKategori')));
 
 const LoginUser = Loadable(lazy(() => import('views/Auth/LoginUser')));
 const LoginAdmin = Loadable(lazy(() => import('views/Auth/LoginAdmin')));
@@ -66,8 +69,16 @@ const MainRoutes = [
       element: <ManpowerDataManage />
     },
     {
+      path: 'fault-history',
+      element: <FaultHistory />
+    },
+    {
       path: 'component-usage',
       element: <ComponentUsage />
+    },
+    {
+      path: 'performance-history',
+      element: <PerformanceHistory />
     }
   ]
   }

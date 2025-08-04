@@ -88,7 +88,7 @@ const renderParetoChart = (data, title, lineName, onBarClick) => (
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} interval={0} />
         <YAxis yAxisId="left" label={<Label value="Count" angle={-90} position="insideLeft" />} />
-        <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tickFormatter={(value) => `${value}%`} label={<Label value="Cumulative %" angle={90} position="insideRight" />} />
+        <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tickFormatter={(value) => `${value}%` } label={<Label value="Cumulative %" angle={90} position="insideRight" />} />
         <RechartsTooltip content={<CustomParetoTooltip />} />
         <Legend />
         <Bar yAxisId="left" dataKey="count" fill="#1976d2" name="Record Count" />
@@ -103,7 +103,33 @@ const renderPieChart = (data, colors, title) => (
     <Typography variant="h6" align="center" gutterBottom>{title}</Typography>
     <ResponsiveContainer width="100%" height={300}>
       <PieChart>
-        <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={90} label>
+        <Pie
+          data={data}
+          dataKey="value"
+          nameKey="name"
+          cx="50%"
+          cy="45%"
+          outerRadius={90}
+          label
+          onClick={(_, index) => {
+            // Ambil nama dari data[index] karena event PieChart tidak selalu mengirim payload slice
+            let selectedName = null;
+            if (index !== undefined && data[index]) {
+              selectedName = data[index].name;
+            }
+            if (selectedName) {
+              if (title === 'PERIOD') {
+                setSelectedPeriods([selectedName]);
+              } else if (title === 'MAINTENANCE TYPE') {
+                setSelectedMtcTypes([selectedName]);
+              } else if (title === 'DEPO LOCATION') {
+                setSelectedDepoLocs([selectedName]);
+              } else if (title === 'YEAR') {
+                setSelectedYears([selectedName]);
+              }
+            }
+          }}
+        >
           {data.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
           ))}
@@ -246,9 +272,9 @@ const ComponentUsage = () => {
     const filtered = dummyData.filter((item) => item.description?.toUpperCase() === description.toUpperCase());
     setSelectedChartFilter(filtered);
   }, []);
-  const handleBarClickComponent = useCallback((component) => {
-    const filtered = dummyData.filter((item) => item.description?.toUpperCase() === component.toUpperCase());
-    setSelectedChartFilter(filtered);
+  const handleBarClickLocomotive = useCallback((locomotive) => {
+    setSelectedLocomotives([locomotive]);
+    setSelectedChartFilter(dummyData.filter((item) => item.locomotive === locomotive));
   }, []);
 
   // === Filter Dropdown Helper ===
@@ -267,7 +293,30 @@ const ComponentUsage = () => {
               {items.map((item) => {
                 const count = getCount(label, item);
                 return (
-                  <ListItem key={item} button onClick={() => onToggle(item)} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
+                  <ListItem key={item} button onClick={() => {
+                    onToggle(item);
+                    // Integrate filter with chart for relevant fields
+                    if (label === 'COMPONENT' || label === 'DESCRIPTION') {
+                      setSelectedChartFilter(dummyData.filter((d) => d.description?.toUpperCase() === item.toUpperCase()));
+                    } else if (label === 'LOCOMOTIVE') {
+                      setSelectedLocomotives([item]);
+                      setSelectedChartFilter(dummyData.filter((d) => d.locomotive === item));
+                    } else if (label === 'PERIOD') {
+                      setSelectedPeriods([item]);
+                      setSelectedChartFilter(dummyData.filter((d) => d.period === item));
+                    } else if (label === 'MAINTENANCE TYPE' || label === 'MTC. TYPE') {
+                      setSelectedMtcTypes([item]);
+                      setSelectedChartFilter(dummyData.filter((d) => d.maintenance === item));
+                    } else if (label === 'DEPO LOCATION' || label === 'DEPO LOC.') {
+                      setSelectedDepoLocs([item]);
+                      setSelectedChartFilter(dummyData.filter((d) => d.depo === item));
+                    } else if (label === 'YEAR' || label === 'YEARS') {
+                      setSelectedYears([item]);
+                      setSelectedChartFilter(dummyData.filter((d) => d.year === item));
+                    } else {
+                      setSelectedChartFilter(null);
+                    }
+                  }} sx={{ '&:hover': { backgroundColor: '#f0f0f0' } }}>
                     <ListItemIcon>
                       <Checkbox checked={selectedItems.includes(item)} />
                     </ListItemIcon>
@@ -298,58 +347,13 @@ const ComponentUsage = () => {
         Component Usage
       </Typography>
 
-      {/* Filter Section */}
-      <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
-        <CardContent>
-          <Typography variant="h6" fontWeight={600} sx={{ color: '#2563eb', mb: 2 }}>
-            Filter Data
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={3}>
-              {renderFilter('COMPONENT', dropdownRef, dropdownOpen, setDropdownOpen, componentSearch, setComponentSearch, filteredComponents, selectedComponents, (value) => handleToggle(setSelectedComponents, selectedComponents, value))}
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              {renderFilter('PART NO', partNoRef, partNoOpen, setPartNoOpen, partNoSearch, setPartNoSearch, filteredPartNos, selectedPartNos, (value) => handleToggle(setSelectedPartNos, selectedPartNos, value))}
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              {renderFilter('MTC. TYPE', mtcTypeRef, mtcTypeOpen, setMtcTypeOpen, mtcTypeSearch, setMtcTypeSearch, filteredMtcTypes.map(i=>i.type), selectedMtcTypes, (value) => handleToggle(setSelectedMtcTypes, selectedMtcTypes, value))}
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              {renderFilter('SO DATE', soDateRef, soDateOpen, setSoDateOpen, soDateSearch, setSoDateSearch, filteredSoDates, selectedSoDates, (value) => handleToggle(setSelectedSoDates, selectedSoDates, value))}
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              {renderFilter('LOCOMOTIVE', locomotiveRef, locomotiveOpen, setLocomotiveOpen, locomotiveSearch, setLocomotiveSearch, filteredLocomotives, selectedLocomotives, (value) => handleToggle(setSelectedLocomotives, selectedLocomotives, value))}
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              {renderFilter('DEPO LOC.', depoLocRef, depoLocOpen, setDepoLocOpen, depoLocSearch, setDepoLocSearch, filteredDepoLocs, selectedDepoLocs, (value) => handleToggle(setSelectedDepoLocs, selectedDepoLocs, value))}
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              {renderFilter('YEARS', yearRef, yearOpen, setYearOpen, yearSearch, setYearSearch, filteredYears, selectedYears, (value) => handleToggle(setSelectedYears, selectedYears, value))}
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              {renderFilter('MONTH', monthRef, monthOpen, setMonthOpen, monthSearch, setMonthSearch, filteredMonths, selectedMonths, (value) => handleToggle(setSelectedMonths, selectedMonths, value))}
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              {renderFilter('PART USING', partUsingRef, partUsingOpen, setPartUsingOpen, partUsingSearch, setPartUsingSearch, filteredPartUsings, selectedPartUsings, (value) => handleToggle(setSelectedPartUsings, selectedPartUsings, value))}
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              {renderFilter('PART TYPE', partTypeRef, partTypeOpen, setPartTypeOpen, partTypeSearch, setPartTypeSearch, filteredPartTypes, selectedPartTypes, (value) => handleToggle(setSelectedPartTypes, selectedPartTypes, value))}
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              {renderFilter('PERIOD', periodRef, periodOpen, setPeriodOpen, periodSearch, setPeriodSearch, filteredPeriods, selectedPeriods, (value) => handleToggle(setSelectedPeriods, selectedPeriods, value))}
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
-
       {/* Charts Section */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={6}>
           {renderParetoChart(generateParetoData(filteredData, "description"), "DESCRIPTION", "DESCRIPTION", handleBarClickDescription)}
         </Grid>
         <Grid item xs={12} md={6}>
-          {renderParetoChart(generateParetoData(filteredData, "component"), "COMPONENT", "COMPONENT", handleBarClickComponent)}
+          {renderParetoChart(generateParetoData(filteredData, "locomotive"), "LOCOMOTIVE", "LOCOMOTIVE", handleBarClickLocomotive)}
         </Grid>
         {pieCharts.map((chart, idx) => (
           <Grid item xs={12} sm={6} md={3} key={idx}>
@@ -358,20 +362,37 @@ const ComponentUsage = () => {
         ))}
       </Grid>
 
-      {/* Table Section */}
+      {/* Filter + Table Section */}
       <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
         <CardContent>
           <Typography variant="h6" fontWeight={600} sx={{ color: '#2563eb', mb: 2 }}>
-            Data Table
+            Filter Data & Data Table
           </Typography>
           <Divider sx={{ mb: 2 }} />
+          {/* Filter section */}
+          <Box mb={3}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('COMPONENT', dropdownRef, dropdownOpen, setDropdownOpen, componentSearch, setComponentSearch, filteredComponents, selectedComponents, (value) => handleToggle(setSelectedComponents, selectedComponents, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('PART NO', partNoRef, partNoOpen, setPartNoOpen, partNoSearch, setPartNoSearch, filteredPartNos, selectedPartNos, (value) => handleToggle(setSelectedPartNos, selectedPartNos, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('MTC. TYPE', mtcTypeRef, mtcTypeOpen, setMtcTypeOpen, mtcTypeSearch, setMtcTypeSearch, filteredMtcTypes.map(i=>i.type), selectedMtcTypes, (value) => handleToggle(setSelectedMtcTypes, selectedMtcTypes, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('SO DATE', soDateRef, soDateOpen, setSoDateOpen, soDateSearch, setSoDateSearch, filteredSoDates, selectedSoDates, (value) => handleToggle(setSelectedSoDates, selectedSoDates, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('LOCOMOTIVE', locomotiveRef, locomotiveOpen, setLocomotiveOpen, locomotiveSearch, setLocomotiveSearch, filteredLocomotives, selectedLocomotives, (value) => handleToggle(setSelectedLocomotives, selectedLocomotives, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('DEPO LOC.', depoLocRef, depoLocOpen, setDepoLocOpen, depoLocSearch, setDepoLocSearch, filteredDepoLocs, selectedDepoLocs, (value) => handleToggle(setSelectedDepoLocs, selectedDepoLocs, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('YEARS', yearRef, yearOpen, setYearOpen, yearSearch, setYearSearch, filteredYears, selectedYears, (value) => handleToggle(setSelectedYears, selectedYears, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('MONTH', monthRef, monthOpen, setMonthOpen, monthSearch, setMonthSearch, filteredMonths, selectedMonths, (value) => handleToggle(setSelectedMonths, selectedMonths, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('PART USING', partUsingRef, partUsingOpen, setPartUsingOpen, partUsingSearch, setPartUsingSearch, filteredPartUsings, selectedPartUsings, (value) => handleToggle(setSelectedPartUsings, selectedPartUsings, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('PART TYPE', partTypeRef, partTypeOpen, setPartTypeOpen, partTypeSearch, setPartTypeSearch, filteredPartTypes, selectedPartTypes, (value) => handleToggle(setSelectedPartTypes, selectedPartTypes, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('PERIOD', periodRef, periodOpen, setPeriodOpen, periodSearch, setPeriodSearch, filteredPeriods, selectedPeriods, (value) => handleToggle(setSelectedPeriods, selectedPeriods, value))}</Grid>
+            </Grid>
+          </Box>
+          {/* Table section */}
           <TableContainer component={Paper} sx={{ maxHeight: 500 }}>
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
                   {headers.map((header) => (
                     <TableCell key={header} sx={{ fontWeight: 'bold', backgroundColor: '#2563eb', color: '#fff' }}>
-                      {header}
+                      {header.toUpperCase()}
                     </TableCell>
                   ))}
                 </TableRow>
