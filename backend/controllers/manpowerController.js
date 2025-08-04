@@ -20,10 +20,21 @@ exports.createManpower = async (req, res) => {
 
 exports.deleteManpower = async (req, res) => {
   try {
-    const deleted = await manpowerModel.deleteManpower(req.params.id);
+    const deleted = await manpowerModel.deleteManpower(req.params.nipp);
     if (!deleted) return res.status(404).json({ error: 'Data manpower tidak ditemukan' });
     res.json({ message: 'Manpower berhasil dihapus', manpower: deleted });
   } catch (err) {
     res.status(500).json({ error: 'Gagal menghapus manpower', detail: err.message });
+  }
+};
+
+// GET detail manpower + diklat + sertifikasi
+exports.getDetailManpowerByNipp = async (req, res) => {
+  try {
+    const data = await manpowerModel.getDetailManpowerByNipp(req.params.nipp);
+    if (!data) return res.status(404).json({ error: 'Data manpower tidak ditemukan' });
+    res.json({ manpower: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Gagal mengambil detail manpower', detail: err.message });
   }
 };

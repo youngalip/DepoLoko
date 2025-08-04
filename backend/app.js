@@ -20,6 +20,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/fasilitas', require('./routes/fasilitasRoutes'));
 const manpowerRoutes = require('./routes/manpowerRoutes');
 app.use('/api/manpower', manpowerRoutes);
+app.use('/api/manpower-diklat', require('./routes/manpowerDiklatRoutes'));
+app.use('/api/manpower-sertifikasi', require('./routes/manpowerSertifikasiRoutes'));
+app.use('/api/pantauan-roda', require('./routes/pantauanRodaRoutes'));
 // TODO: Tambahkan routes lain di sini
 app.use('/api/action-plan', require('./routes/actionPlanRoute')); // Integrasi Action Plan
 const sertifikatSioRoutes = require('./routes/sertifikatSioRoutes');

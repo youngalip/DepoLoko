@@ -3,7 +3,8 @@ const router = express.Router();
 const manpowerController = require('../controllers/manpowerController');
 
 router.get('/', manpowerController.getAllManpower);
+router.get('/:nipp', manpowerController.getDetailManpowerByNipp);
 router.post('/', manpowerController.createManpower);
-router.delete('/:id', manpowerController.deleteManpower);
+router.delete('/:nipp', manpowerController.deleteManpower);
 
 module.exports = router;

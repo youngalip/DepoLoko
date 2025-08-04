@@ -71,12 +71,17 @@ export default function InputDataMultiKategori() {
   diklatSMDP: null,
   diklatJMDP: null,
   diklatDIKSAR: null,
-  sertifikasi: '',
-  nomorSertifikat: '',
-  tanggalTerbitSertifikat: null,
-  masaBerlakuSertifikat: null,
   dtoPRS: null,
   dtoPMS: null
+});
+// Sertifikasi hanya satu per pegawai
+const [sertifikasi, setSertifikasi] = useState({
+  sertifikasi: '',
+  nomor_sertifikat: '',
+  tanggal_terbit: null,
+  berlaku_sampai: null,
+  masa_berlaku: null,
+  status: ''
 });
   const [pantauan, setPantauan] = useState({ diameter: '', flensKanan: '', flensKiri: '', tinggiKanan: '', tinggiKiri: '' });
   const nomorLokomotifOptions = [
@@ -191,78 +196,169 @@ const handleFasilitasDragOver = (e) => e.preventDefault();
   // (handleActionPlanFile and handleFasilitasFile already defined above with validation and preview handling)
 
   // Integrasi submit ke backend
+const handleSertifikasiChange = (field, value) => {
+  setSertifikasi(prev => ({ ...prev, [field]: value }));
+};
+
 const handleSubmit = async (kategori) => {
-  let data;
-  switch (kategori) {
-    case 'manpower':
-    case 'actionPlan':
-    case 'fasilitas':
-      if (role === 'user') return; // user tidak boleh submit ini
-      break;
-    default:
-      break;
-  }
+let data;
+switch (kategori) {
+  case 'manpower':
+  case 'actionPlan':
+  case 'fasilitas':
+    if (role === 'user') return; // user tidak boleh submit ini
+    break;
+  default:
+    break;
+}
 
-  switch (kategori) {
-    case 'manpower':
-      data = manpower;
-      break;
-    case 'pantauan':
-      data = pantauan;
-      break;
-    case 'actionPlan':
-      data = actionPlan;
-      break;
-    case 'fasilitas':
-      data = fasilitas;
-      break;
-    default:
-      data = {};
-  }
+switch (kategori) {
+  case 'manpower':
+    data = manpower;
+    break;
+  case 'pantauan':
+    data = pantauan;
+    break;
+  case 'actionPlan':
+    data = actionPlan;
+    break;
+  case 'fasilitas':
+    data = fasilitas;
+    break;
+  default:
+    data = {};
+}
 
-  if (kategori === 'fasilitas') {
-    // Mapping field camelCase ke snake_case sesuai tabel DB
-    const fasilitasPayload = {
-      nomor_aset: data.nomorAset,
-      nama_fasilitas: data.namaFasilitas,
-      kategori: data.kategori,
-      jumlah_satuan: data.jumlahSatuan ? parseInt(data.jumlahSatuan) : 0,
-      baik: data.baik ? parseInt(data.baik) : 0,
-      pantauan: data.pantauan ? parseInt(data.pantauan) : 0,
-      rusak: data.rusak ? parseInt(data.rusak) : 0,
-      spesifikasi: data.spesifikasi,
-      merk: data.merk,
-      tahun_pengadaan: data.tahunPengadaan ? parseInt(data.tahunPengadaan) : null,
-      tahun_mulai_dinas: data.tahunMulaiDinas ? parseInt(data.tahunMulaiDinas) : null,
-      tanggal_perawatan: data.tanggalPerawatan ? new Date(data.tanggalPerawatan).toISOString().slice(0,10) : null,
-      kategori_standardisasi: data.kategoriStandardisasi,
-      tanggal_sertifikasi: data.tanggalSertifikasi ? new Date(data.tanggalSertifikasi).toISOString().slice(0,10) : null,
-      lokasi_penyimpanan: data.lokasiPenyimpanan,
-      umur_komponen: data.umurKomponen ? parseInt(data.umurKomponen) : null,
-      foto_path: data.foto ? data.foto.name : null, // Untuk demo, hanya simpan nama file
-      is_active: true
-    };
-    try {
-      const res = await fetch('/api/fasilitas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fasilitasPayload)
-      });
-      if (res.ok) {
-        alert('Data fasilitas berhasil disimpan!');
-        // Optionally, reset form here
-      } else {
-        const err = await res.json();
-        alert('Gagal menyimpan data fasilitas: ' + (err.message || 'Unknown error'));
-      }
-    } catch (error) {
-      alert('Gagal menyimpan data fasilitas: ' + error.message);
-    }
+if (kategori === 'manpower') {
+  // Validasi field wajib (frontend)
+  const required = [
+    { field: 'nipp', label: 'NIPP' },
+    { field: 'nama', label: 'Nama' },
+    { field: 'jabatan', label: 'Jabatan' },
+    { field: 'pendidikan', label: 'Pendidikan' },
+    { field: 'tmtPensiun', label: 'TMT Pensiun' },
+    { field: 'tanggalLahir', label: 'Tanggal Lahir' },
+  ];
+  const missing = required.filter(r => !manpower[r.field]);
+  if (missing.length > 0) {
+    alert('Field wajib belum diisi: ' + missing.map(m => m.label).join(', '));
     return;
   }
+  // Mapping ke backend
+  const payload = {
+    nipp: manpower.nipp,
+    nama: manpower.nama,
+    jabatan: manpower.jabatan,
+    regu: manpower.regu,
+    tempat_lahir: manpower.tempatLahir,
+    tanggal_lahir: manpower.tanggalLahir ? new Date(manpower.tanggalLahir).toISOString().slice(0,10) : null,
+    tmt_pensiun: manpower.tmtPensiun ? new Date(manpower.tmtPensiun).toISOString().slice(0,10) : null,
+    pendidikan: manpower.pendidikan,
+    is_active: true
+  };
+  try {
+    // 1. Submit identitas
+    const res = await fetch('/api/manpower', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert('Gagal menyimpan data manpower: ' + (err.message || 'Unknown error'));
+      return;
+    }
+    // 2. Submit diklat
+    const diklatPayload = {
+      nipp: manpower.nipp,
+      dto_prs: manpower.diklatT2PRS ? new Date(manpower.diklatT2PRS).toISOString().slice(0,10) : null,
+      dto_pms: manpower.diklatT2PMS ? new Date(manpower.diklatT2PMS).toISOString().slice(0,10) : null,
+      t2_prs: manpower.diklatT2PRS ? new Date(manpower.diklatT2PRS).toISOString().slice(0,10) : null,
+      t2_pms: manpower.diklatT2PMS ? new Date(manpower.diklatT2PMS).toISOString().slice(0,10) : null,
+      t3_prs: manpower.diklatT3PRS ? new Date(manpower.diklatT3PRS).toISOString().slice(0,10) : null,
+      t3_pms: manpower.diklatT3PMS ? new Date(manpower.diklatT3PMS).toISOString().slice(0,10) : null,
+      t4_mps: manpower.diklatT4 ? new Date(manpower.diklatT4).toISOString().slice(0,10) : null,
+      smdp: manpower.diklatSMDP ? new Date(manpower.diklatSMDP).toISOString().slice(0,10) : null,
+      jmdp: manpower.diklatJMDP ? new Date(manpower.diklatJMDP).toISOString().slice(0,10) : null
+    };
+    await fetch('/api/manpower-diklat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(diklatPayload)
+    });
+    // 3. Submit satu sertifikasi (jika ada)
+    if (sertifikasi.sertifikasi) {
+      const sertPayload = {
+        nipp: manpower.nipp,
+        sertifikasi: sertifikasi.sertifikasi,
+        nomor_sertifikat: sertifikasi.nomor_sertifikat,
+        tanggal_terbit: sertifikasi.tanggal_terbit ? new Date(sertifikasi.tanggal_terbit).toISOString().slice(0,10) : null,
+        berlaku_sampai: sertifikasi.berlaku_sampai ? new Date(sertifikasi.berlaku_sampai).toISOString().slice(0,10) : null,
+        masa_berlaku: sertifikasi.masa_berlaku ? new Date(sertifikasi.masa_berlaku).toISOString().slice(0,10) : null,
+        status: sertifikasi.status
+      };
+      await fetch('/api/manpower-sertifikasi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sertPayload)
+      });
+    }
+    alert('Data manpower, diklat, dan sertifikasi berhasil disimpan!');
+    setManpower({
+      nipp: '', nama: '', jabatan: '', regu: '', tempatLahir: '', tanggalLahir: null, tmtPensiun: null, pendidikan: '',
+      diklatT2PRS: null, diklatT2PMS: null, diklatT3PRS: null, diklatT3PMS: null, diklatT4: null, diklatSMDP: null, diklatJMDP: null, diklatDIKSAR: null,
+      dtoPRS: null, dtoPMS: null
+    });
+    setSertifikasi({ sertifikasi: '', nomor_sertifikat: '', tanggal_terbit: null, berlaku_sampai: null, masa_berlaku: null, status: '' });
+  } catch (error) {
+    alert('Gagal submit data: ' + error.message);
+  }
+  return;
+}
 
-  // Untuk kategori lain, tetap pakai alert simulasi
-  alert('Data disimpan untuk kategori: ' + kategori + '\n' + JSON.stringify(data, null, 2));
+if (kategori === 'fasilitas') {
+  // Mapping field camelCase ke snake_case sesuai tabel DB
+  const fasilitasPayload = {
+    nomor_aset: data.nomorAset,
+    nama_fasilitas: data.namaFasilitas,
+    kategori: data.kategori,
+    jumlah_satuan: data.jumlahSatuan ? parseInt(data.jumlahSatuan) : 0,
+    baik: data.baik ? parseInt(data.baik) : 0,
+    pantauan: data.pantauan ? parseInt(data.pantauan) : 0,
+    rusak: data.rusak ? parseInt(data.rusak) : 0,
+    spesifikasi: data.spesifikasi,
+    merk: data.merk,
+    tahun_pengadaan: data.tahunPengadaan ? parseInt(data.tahunPengadaan) : null,
+    tahun_mulai_dinas: data.tahunMulaiDinas ? parseInt(data.tahunMulaiDinas) : null,
+    tanggal_perawatan: data.tanggalPerawatan ? new Date(data.tanggalPerawatan).toISOString().slice(0,10) : null,
+    kategori_standardisasi: data.kategoriStandardisasi,
+    tanggal_sertifikasi: data.tanggalSertifikasi ? new Date(data.tanggalSertifikasi).toISOString().slice(0,10) : null,
+    lokasi_penyimpanan: data.lokasiPenyimpanan,
+    umur_komponen: data.umurKomponen ? parseInt(data.umurKomponen) : null,
+    foto_path: data.foto ? data.foto.name : null, // Untuk demo, hanya simpan nama file
+    is_active: true
+  };
+  try {
+    const res = await fetch('/api/fasilitas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fasilitasPayload)
+    });
+    if (res.ok) {
+      alert('Data fasilitas berhasil disimpan!');
+      // Optionally, reset form here
+    } else {
+      const err = await res.json();
+      alert('Gagal menyimpan data fasilitas: ' + (err.message || 'Unknown error'));
+    }
+  } catch (error) {
+    alert('Gagal menyimpan data fasilitas: ' + error.message);
+  }
+  return;
+}
+
+// Untuk kategori lain, tetap pakai alert simulasi
+alert('Data disimpan untuk kategori: ' + kategori + '\n' + JSON.stringify(data, null, 2));
 };  
 
   // Form UI
@@ -291,20 +387,20 @@ const handleSubmit = async (kategori) => {
 
   // --- FORMS ---
   const pendidikanOptions = [
-  'SMA/SMK', 'D3', 'D4', 'S1', 'S2', 'S3'
-];
-const sertifikasiOptions = [
+  'SLTA', 'D3', 'D1', 'SD'
+  ];
+  const sertifikasiOptions = [
   'Sertifikat A', 'Sertifikat B', 'Sertifikat C', 'Sertifikat D'
-];
+  ];
 
-const ManpowerForm = (
-  <Card sx={formCardStyle}>
-    <Box sx={headerStyle}>
-      <Typography variant="h6" fontWeight={700}>Input Data Manpower</Typography>
-    </Box>
-    <CardContent>
-      <LocalizationProvider dateAdapter={AdapterDateFns}>
-        <Grid container spacing={2}>
+  const ManpowerForm = (
+    <Card sx={formCardStyle}>
+      <Box sx={headerStyle}>
+        <Typography variant="h6" fontWeight={700}>Input Data Manpower</Typography>
+      </Box>
+      <CardContent>
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <Grid container spacing={2}>
           {/* Identitas Dasar */}
           <Grid item xs={12}>
             <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Identitas Dasar</Typography>
@@ -356,26 +452,55 @@ const ManpowerForm = (
           <Grid item xs={12} md={3} sx={{ minWidth: 0 }}><DatePicker label="SMDP" value={manpower.diklatSMDP} onChange={(v) => handleManpowerDateChange('diklatSMDP', v)} slotProps={{ textField: { fullWidth: true, size: 'small', sx: { mb: { xs: 2, md: 0 } } } }} /></Grid>
           <Grid item xs={12} md={3} sx={{ minWidth: 0 }}><DatePicker label="JMDP" value={manpower.diklatJMDP} onChange={(v) => handleManpowerDateChange('diklatJMDP', v)} slotProps={{ textField: { fullWidth: true, size: 'small', sx: { mb: { xs: 2, md: 0 } } } }} /></Grid>
           <Grid item xs={12} md={3} sx={{ minWidth: 0 }}><DatePicker label="DIKSAR" value={manpower.diklatDIKSAR} onChange={(v) => handleManpowerDateChange('diklatDIKSAR', v)} slotProps={{ textField: { fullWidth: true, size: 'small', sx: { mb: { xs: 2, md: 0 } } } }} /></Grid>
-          {/* Sertifikasi */}
-          <Grid item xs={12} sx={{ mt: 3 }}>
-            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Sertifikasi</Typography>
-            <Divider sx={{ mb: 2 }} />
-          </Grid>
-          <Grid item xs={12} md={4} sx={{ minWidth: 0 }}>
-            <Autocomplete
-              options={sertifikasiOptions}
-              value={manpower.sertifikasi}
-              onChange={(_, v) => setManpower({ ...manpower, sertifikasi: v })}
-              renderInput={(params) => <TextField {...params} label="Jenis Sertifikasi" fullWidth size="small" />}
-              fullWidth
-              disableClearable
-              autoHighlight
-              sx={{ mb: { xs: 2, md: 0 } }}
-            />
-          </Grid>
-          <Grid item xs={12} md={4} sx={{ minWidth: 0 }}><TextField name="nomorSertifikat" label="Nomor Sertifikat" fullWidth value={manpower.nomorSertifikat} onChange={handleManpowerChange} size="small" sx={{ mb: { xs: 2, md: 0 } }} /></Grid>
-          <Grid item xs={12} md={2} sx={{ minWidth: 0 }}><DatePicker label="Tanggal Terbit" value={manpower.tanggalTerbitSertifikat} onChange={(v) => handleManpowerDateChange('tanggalTerbitSertifikat', v)} slotProps={{ textField: { fullWidth: true, size: 'small', sx: { mb: { xs: 2, md: 0 } } } }} /></Grid>
-          <Grid item xs={12} md={2} sx={{ minWidth: 0 }}><DatePicker label="Masa Berlaku" value={manpower.masaBerlakuSertifikat} onChange={(v) => handleManpowerDateChange('masaBerlakuSertifikat', v)} slotProps={{ textField: { fullWidth: true, size: 'small', sx: { mb: { xs: 2, md: 0 } } } }} /></Grid>
+          {/* Sertifikasi Satu Entry */}
+<Grid item xs={12} sx={{ mt: 3 }}>
+  <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Sertifikasi</Typography>
+  <Divider sx={{ mb: 2 }} />
+</Grid>
+<Grid item xs={12} md={3} sx={{ minWidth: 0 }}>
+  <FormControl fullWidth size="small">
+    <InputLabel id="jenis-sertifikasi-label">Jenis Sertifikasi</InputLabel>
+    <Select
+      labelId="jenis-sertifikasi-label"
+      value={sertifikasi.jenis}
+      label="Jenis Sertifikasi"
+      onChange={e => handleSertifikasiChange('jenis', e.target.value)}
+      displayEmpty
+    >
+      <MenuItem value="">Pilih Jenis</MenuItem>
+      <MenuItem value="ths">THS</MenuItem>
+      <MenuItem value="prs pelaksana">PRS Pelaksana</MenuItem>
+      <MenuItem value="pms pelaksana">PMS Pelaksana</MenuItem>
+    </Select>
+  </FormControl>
+</Grid>
+<Grid item xs={12} md={3} sx={{ minWidth: 0 }}>
+  <TextField name="nomorSertifikat" label="Nomor Sertifikat" fullWidth value={sertifikasi.nomorSertifikat} onChange={e => handleSertifikasiChange('nomorSertifikat', e.target.value)} size="small" sx={{ mb: { xs: 2, md: 0 } }} />
+</Grid>
+<Grid item xs={12} md={2} sx={{ minWidth: 0 }}>
+  <DatePicker label="Tanggal Terbit" value={sertifikasi.tanggalTerbitSertifikat} onChange={v => handleSertifikasiChange('tanggalTerbitSertifikat', v)} slotProps={{ textField: { fullWidth: true, size: 'small', sx: { mb: { xs: 2, md: 0 } } } }} />
+</Grid>
+<Grid item xs={12} md={2} sx={{ minWidth: 0 }}>
+  <DatePicker label="Masa Berlaku" value={sertifikasi.masaBerlakuSertifikat} onChange={v => handleSertifikasiChange('masaBerlakuSertifikat', v)} slotProps={{ textField: { fullWidth: true, size: 'small', sx: { mb: { xs: 2, md: 0 } } } }} />
+</Grid>
+<Grid item xs={12} md={2} sx={{ minWidth: 0 }}>
+  <FormControl fullWidth size="small">
+    <InputLabel id="status-sertifikasi-label">Status</InputLabel>
+    <Select
+      labelId="status-sertifikasi-label"
+      value={sertifikasi.status}
+      label="Status"
+      onChange={e => handleSertifikasiChange('status', e.target.value)}
+      displayEmpty
+    >
+      <MenuItem value="">Pilih Status</MenuItem>
+      <MenuItem value="THS">THS</MenuItem>
+      <MenuItem value="Belum">Belum</MenuItem>
+      <MenuItem value="OK">OK</MenuItem>
+      <MenuItem value="Expired">Expired</MenuItem>
+    </Select>
+  </FormControl>
+</Grid>
           {/* Status Teknik Operasi */}
           <Grid item xs={12} sx={{ mt: 3 }}>
   <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Status Teknik Operasi</Typography>
