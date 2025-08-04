@@ -69,15 +69,15 @@ const MainRoutes = [
       element: <ManpowerDataManage />
     },
     {
-      path: '/fault-history',
+      path: 'fault-history',
       element: <FaultHistory />
     },
     {
-      path: '/component-usage',
+      path: 'component-usage',
       element: <ComponentUsage />
     },
     {
-      path: '/performance-history',
+      path: 'performance-history',
       element: <PerformanceHistory />
     }
   ]

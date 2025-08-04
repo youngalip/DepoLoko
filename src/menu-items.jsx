@@ -30,9 +30,8 @@ const icons = {
   HelpOutlineOutlinedIcon,
   LogoutOutlinedIcon,
   WarningAmberOutlinedIcon,
-  ListAltOutlinedIcon // ✅ daftarkan icon baru
-  CopyrightOutlinedIcon,
-  LogoutOutlinedIcon
+  ListAltOutlinedIcon, // ✅ daftarkan icon baru
+  CopyrightOutlinedIcon
 };
 
 export default {
@@ -88,23 +87,22 @@ export default {
           title: 'Fault History',
           type: 'item',
           icon: icons['WarningAmberOutlinedIcon'],
-          url: '/fault-history'
+          url: '/dashboard/fault-history'
         },
         {
           id: 'component-usage',
           title: 'Component Usage',
           type: 'item',
           icon: icons['ListAltOutlinedIcon'], // ✅ Icon untuk component usage
-          url: '/component-usage' // ✅ pastikan path sesuai dengan MainRoutes.jsx
+          url: '/dashboard/component-usage' // ✅ pastikan path sesuai dengan MainRoutes.jsx
         },
         {
           id: 'performance-history',
           title: 'Performance History',
           type: 'item',
           icon: icons['AssessmentOutlinedIcon'],
-          url: '/performance-history'
+          url: '/dashboard/performance-history'
         },
-
         {
           id: 'input-data',
           title: 'Input Data Multi-Kategori',
