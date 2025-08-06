@@ -49,71 +49,245 @@ ChartJS.register(
   Legend
 );
 
-
-
-
-
-
 export default function ManpowerDataManage() {
-  // State hooks harus di dalam komponen
-  const [manpowerData, setManpowerData] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState("");
-
-  // Fetch data dari backend
-  React.useEffect(() => {
-    setLoading(true);
-    setError("");
-    fetch("/api/manpower")
-      .then((res) => res.json())
-      .then((data) => {
-        setManpowerData(Array.isArray(data.manpower) ? data.manpower : []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError("Gagal mengambil data manpower");
-        setLoading(false);
-      });
-  }, []);
-
-  // Helper: summary by field
-  function getSummaryByField(field) {
-    const summary = {};
-    manpowerData.forEach((item) => {
-      const key = item[field] || "Lainnya";
-      summary[key] = (summary[key] || 0) + 1;
-    });
-    return Object.entries(summary).map(([label, value]) => ({ label, value }));
-  }
-
-  // Helper: chart data
-  function getChartDataByField(field, labelOrder = null, colorMap = null) {
-    const summary = {};
-    manpowerData.forEach((item) => {
-      const key = item[field] || "Lainnya";
-      summary[key] = (summary[key] || 0) + 1;
-    });
-    const labels = labelOrder || Object.keys(summary);
-    const data = labels.map((label) => summary[label] || 0);
-    const backgroundColor = colorMap ? labels.map((label) => colorMap[label] || "#2196f3") : undefined;
-    return {
-      labels,
-      datasets: [
-        {
-          data,
-          backgroundColor,
-          borderWidth: 0,
-          borderRadius: 4,
-        },
-      ],
-    };
-  }
+  const [manpowerTable, setManpowerTable] = React.useState([]);
+  const [loadingManpower, setLoadingManpower] = React.useState(true);
+  const [errorManpower, setErrorManpower] = React.useState('');
 
   const [showDetail, setShowDetail] = useState(false);
   const [detailKategori, setDetailKategori] = useState('');
   const [detailTitle, setDetailTitle] = useState('');
 
-  const totalEmployee = manpowerData.length;
+  React.useEffect(() => {
+    const fetchManpower = async () => {
+      setLoadingManpower(true);
+      setErrorManpower('');
+      try {
+        const res = await fetch('/api/manpower');
+        if (!res.ok) throw new Error('Gagal mengambil data manpower');
+        const data = await res.json();
+        setManpowerTable(normalizeManpowerData(data));
+      } catch (err) {
+        setErrorManpower(err.message || 'Gagal mengambil data manpower');
+        setManpowerTable([]);
+      } finally {
+        setLoadingManpower(false);
+      }
+    };
+    fetchManpower();
+  }, []);
+
+  // === Dynamic summary & chart data from manpowerTable ===
+  const jabatanList = [
+    'Kepala UPT',
+    'Supervisor',
+    'Pengawas Gudang',
+    'Teknisi Gudang',
+    'Pengawas Fasilitas',
+    'Teknisi Fasilitas',
+    'Pengawas LOS',
+    'MC Crew',
+    'BKO MSA',
+    'Pengawas DC',
+    'DC Crew',
+    'Calon Teknisi',
+    'Calon Pegawai',
+    'KAI Service',
+  ];
+  const totalManpower = jabatanList.map(label => {
+    let value = 0;
+    manpowerTable.forEach(row => {
+      const jabatan = (row.jabatan || '').toLowerCase();
+      const regu = (row.regu || '').toLowerCase();
+      if (label === 'Supervisor') {
+        if (jabatan.includes('supervisor')) value++;
+      } else if (label === 'MC Crew') {
+        // MC Crew = jabatan mengandung 'mc crew' atau 'teknisi los'
+        if (jabatan.includes('mc crew') || jabatan.includes('teknisi los')) value++;
+      } else if (label === 'Calon Pegawai') {
+        // Calon Pegawai = jabatan mengandung 'calon pegawai' atau 'calon pekerja'
+        if (jabatan.includes('calon pegawai') || jabatan.includes('calon pekerja')) value++;
+      } else if (label === 'BKO MSA') {
+        // BKO MSA = regu mengandung 'bko msa', data bisa double jika juga jabatan teknisi los
+        if (regu.includes('bko msa')) value++;
+      } else {
+        // Default: match persis label
+        if (jabatan === label.toLowerCase()) value++;
+      }
+    });
+    return { label, value };
+  });
+
+  // DTO Status
+  const statusDTOLabels = ['Sudah', 'Belum'];
+  const statusDTOCounts = statusDTOLabels.map(label => {
+    let count = 0;
+    manpowerTable.forEach(row => {
+      if (Array.isArray(row.diklat) && row.diklat.length > 0) {
+        // Anggap 'Sudah' jika ada salah satu dto_prs atau dto_pms yang TIDAK null
+        const sudah = row.diklat.some(d => d.dto_prs || d.dto_pms);
+        if (label === 'Sudah' && sudah) count++;
+        if (label === 'Belum' && !sudah) count++;
+      } else {
+        if (label === 'Belum') count++;
+      }
+    });
+    return count;
+  });
+  const statusDTO = {
+    labels: statusDTOLabels,
+    datasets: [{
+      data: statusDTOCounts,
+      backgroundColor: ['#43a047', '#e53935'],
+      borderWidth: 0,
+      borderRadius: 4,
+    }]
+  };
+
+  // Diklat Fungsional
+  const diklatLabels = ['>=5 Kali', '4 Kali', '3 Kali', '2 Kali', '1 Kali', 'Belum'];
+  const diklatCounts = [
+    // >=5 kali
+    manpowerTable.filter(row => {
+      if (!Array.isArray(row.diklat) || row.diklat.length === 0) return false;
+      let total = 0;
+      row.diklat.forEach(d => {
+        const fields = ['dto_prs','dto_pms','t2_prs','t2_pms','t3_prs','t3_pms','t4_mps','smdp','jmdp'];
+        fields.forEach(f => { if (d[f]) total++; });
+      });
+      return total >= 5;
+    }).length,
+    // 4 kali
+    manpowerTable.filter(row => {
+      if (!Array.isArray(row.diklat) || row.diklat.length === 0) return false;
+      let total = 0;
+      row.diklat.forEach(d => {
+        const fields = ['dto_prs','dto_pms','t2_prs','t2_pms','t3_prs','t3_pms','t4_mps','smdp','jmdp'];
+        fields.forEach(f => { if (d[f]) total++; });
+      });
+      return total === 4;
+    }).length,
+    // 3 kali
+    manpowerTable.filter(row => {
+      if (!Array.isArray(row.diklat) || row.diklat.length === 0) return false;
+      let total = 0;
+      row.diklat.forEach(d => {
+        const fields = ['dto_prs','dto_pms','t2_prs','t2_pms','t3_prs','t3_pms','t4_mps','smdp','jmdp'];
+        fields.forEach(f => { if (d[f]) total++; });
+      });
+      return total === 3;
+    }).length,
+    // 2 kali
+    manpowerTable.filter(row => {
+      if (!Array.isArray(row.diklat) || row.diklat.length === 0) return false;
+      let total = 0;
+      row.diklat.forEach(d => {
+        const fields = ['dto_prs','dto_pms','t2_prs','t2_pms','t3_prs','t3_pms','t4_mps','smdp','jmdp'];
+        fields.forEach(f => { if (d[f]) total++; });
+      });
+      return total === 2;
+    }).length,
+    // 1 kali
+    manpowerTable.filter(row => {
+      if (!Array.isArray(row.diklat) || row.diklat.length === 0) return false;
+      let total = 0;
+      row.diklat.forEach(d => {
+        const fields = ['dto_prs','dto_pms','t2_prs','t2_pms','t3_prs','t3_pms','t4_mps','smdp','jmdp'];
+        fields.forEach(f => { if (d[f]) total++; });
+      });
+      return total === 1;
+    }).length,
+    // Belum
+    manpowerTable.filter(row => {
+      if (!Array.isArray(row.diklat) || row.diklat.length === 0) return true;
+      let total = 0;
+      row.diklat.forEach(d => {
+        const fields = ['dto_prs','dto_pms','t2_prs','t2_pms','t3_prs','t3_pms','t4_mps','smdp','jmdp'];
+        fields.forEach(f => { if (d[f]) total++; });
+      });
+      return total === 0;
+    }).length
+  ];
+  const diklatFungsional = {
+    labels: diklatLabels,
+    datasets: [{
+      data: diklatCounts,
+      backgroundColor: '#2563eb',
+      borderWidth: 0,
+      borderRadius: 4,
+    }]
+  };
+
+  // Sertifikasi
+  const sertifikasiLabels = ['OK', 'Belum', 'Expired', 'THS'];
+  const sertifikasiCounts = sertifikasiLabels.map(label => {
+    // Hitung jumlah sertifikasi dengan status sesuai label di seluruh pegawai
+    let count = 0;
+    manpowerTable.forEach(row => {
+      if (Array.isArray(row.sertifikasi)) {
+        count += row.sertifikasi.filter(s => (s.status || '').toLowerCase() === label.toLowerCase()).length;
+      }
+    });
+    return count;
+  });
+  const sertifikasi = {
+    labels: sertifikasiLabels,
+    datasets: [{
+      data: sertifikasiCounts,
+      backgroundColor: ['#43a047', '#2563eb', '#e53935', '#9c27b0'],
+      borderWidth: 0,
+      borderRadius: 4,
+    }]
+  };
+
+  // TMT Pensiun
+  const tmtLabels = ['> 5 Tahun', '< 2 Tahun', '< 5 Tahun'];
+  const tmtCounts = [
+    manpowerTable.filter(row => {
+      const tmt = parseInt(row.tmt_pensiun, 10);
+      if (!tmt || isNaN(tmt)) return false;
+      const diff = tmt - new Date().getFullYear();
+      return diff > 5;
+    }).length,
+    manpowerTable.filter(row => {
+      const tmt = parseInt(row.tmt_pensiun, 10);
+      if (!tmt || isNaN(tmt)) return false;
+      const diff = tmt - new Date().getFullYear();
+      return diff <= 2;
+    }).length,
+    manpowerTable.filter(row => {
+      const tmt = parseInt(row.tmt_pensiun, 10);
+      if (!tmt || isNaN(tmt)) return false;
+      const diff = tmt - new Date().getFullYear();
+      return diff > 0 && diff <= 5;
+    }).length,
+  ];
+  const tmtPensiun = {
+    labels: tmtLabels,
+    datasets: [{
+      data: tmtCounts,
+      backgroundColor: ['#43a047', '#e53935', '#ffd600'],
+      borderWidth: 0,
+      borderRadius: 4,
+    }]
+  };
+
+  // Pendidikan
+  const pendidikanLabels = ['SLTA', 'D3', 'D1', 'SD'];
+  const pendidikanCounts = pendidikanLabels.map(label =>
+    manpowerTable.filter(row => (row.pendidikan || '').toLowerCase() === label.toLowerCase()).length
+  );
+  const pendidikan = {
+    labels: pendidikanLabels,
+    datasets: [{
+      data: pendidikanCounts,
+      backgroundColor: ['#2563eb', '#43a047', '#ffd600', '#e53935'],
+      borderWidth: 0,
+      borderRadius: 4,
+    }]
+  };
+
+  const totalEmployee = totalManpower.reduce((sum, item) => sum + item.value, 0);
 
   // Chart options
   const chartOptions = {
@@ -160,23 +334,18 @@ export default function ManpowerDataManage() {
   };
 
   const getStatusColor = (status) => {
-  if (!status || typeof status !== 'string') {
-    return { backgroundColor: '#f5f5f5', color: '#616161' };
-  }
-  switch (status.toLowerCase()) {
-    case 'done':
-    case 'oke':
-    case 'aktif':
-      return { backgroundColor: '#e8f5e8', color: '#2e7d32' };
-    case 'expired':
-    case 'belum':
-      return { backgroundColor: '#ffebee', color: '#c62828' };
-    case 'ths':
-      return { backgroundColor: '#f3e5f5', color: '#7b1fa2' };
-    default:
-      return { backgroundColor: '#f5f5f5', color: '#616161' };
-  }
-};
+    switch (status.toLowerCase()) {
+      case 'OK':
+        return { backgroundColor: '#e8f5e8', color: '#2e7d32' };
+      case 'Expired':
+      case 'Belum':
+        return { backgroundColor: '#ffebee', color: '#c62828' };
+      case 'THS':
+        return { backgroundColor: '#f3e5f5', color: '#7b1fa2' };
+      default:
+        return { backgroundColor: '#f5f5f5', color: '#616161' };
+    }
+  };
 
   const handleDetailClick = (kategori, title) => {
     setDetailKategori(kategori);
@@ -189,6 +358,15 @@ export default function ManpowerDataManage() {
     setDetailKategori('');
     setDetailTitle('');
   };
+
+  // Helper: flatten data if needed
+  function normalizeManpowerData(data) {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.manpower)) return data.manpower;
+    if (data.manpower) return [data.manpower];
+    return [];
+  }
 
   return (
     <Box sx={{ flexGrow: 1, mt: 2, minHeight: '100vh', background: '#f5f5f5' }}>
@@ -221,38 +399,32 @@ export default function ManpowerDataManage() {
               </Box>
               
               <Box sx={{ mb: 2 }}>
-                {loading ? (
-  <Typography variant="body2" color="text.secondary">Memuat data...</Typography>
-) : error ? (
-  <Typography variant="body2" color="error.main">{error}</Typography>
-) : (
-  getSummaryByField('jabatan').map((item, index) => (
-    <Box
-      key={index}
-      sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        py: 0.5,
-      }}
-    >
-      <Typography variant="body2" sx={{ fontSize: 13, color: '#666' }}>
-        {item.label}
-      </Typography>
-      <Chip
-        label={item.value}
-        size="small"
-        sx={{
-          backgroundColor: 'transparent',
-          color: '#040606',
-          fontWeight: 600,
-          fontSize: 12,
-          height: 29.2,
-        }}
-      />
-    </Box>
-  ))
-)}
+                {totalManpower.map((item, index) => (
+                  <Box
+                    key={index}
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      py: 0.5,
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ fontSize: 13, color: '#666' }}>
+                      {item.label}
+                    </Typography>
+                    <Chip
+                      label={item.value}
+                      size="small"
+                      sx={{
+                        backgroundColor: 'transparent',
+                        color: '#040606',
+                        fontWeight: 600,
+                        fontSize: 12,
+                        height: 29.2,
+                      }}
+                    />
+                  </Box>
+                ))}
               </Box>
               
               <Divider sx={{ my: 2 }} />
@@ -274,157 +446,129 @@ export default function ManpowerDataManage() {
           <Grid container spacing={3}>
             {/* Top Row Charts */}
             <Grid item xs={12} md={4}>
-  <Card sx={{ borderRadius: 4, boxShadow: 3, minHeight: 320, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', p: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <AssignmentIcon sx={{ color: '#2196f3', mr: 1, fontSize: 28 }} />
-        <Typography variant="h6" sx={{ fontWeight: 700, color: '#2196f3' }}>
-          Status DTO
-        </Typography>
-      </Box>
-      <Box sx={{ height: 220 }}>
-        {loading ? (
-  <Typography variant="body2" color="text.secondary">Memuat data...</Typography>
-) : error ? (
-  <Typography variant="body2" color="error.main">{error}</Typography>
-) : (
-  <Bar
-    data={getChartDataByField('dto', ['Sudah', 'Belum'], { 'Sudah': '#43a047', 'Belum': '#e53935' })}
-    options={chartOptions}
-  />
-) }
-      </Box>
-    </CardContent>
-  </Card>
-</Grid>
+              <Card sx={{ borderRadius: 4, boxShadow: 3, minHeight: 320, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', p: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <AssignmentIcon sx={{ color: '#2196f3', mr: 1, fontSize: 28 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#2196f3' }}>
+                      Status DTO
+                    </Typography>
+                  </Box>
+                  <Box sx={{ height: 220 }}>
+                    <Bar data={statusDTO} options={chartOptions} />
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
 
             <Grid item xs={12} md={4}>
-  <Card sx={{ borderRadius: 4, boxShadow: 3, minHeight: 320, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', p: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <SchoolIcon sx={{ color: '#2196f3', mr: 1, fontSize: 28 }} />
-        <Typography variant="h6" sx={{ fontWeight: 700, color: '#2196f3' }}>
-          Diklat Fungsional
-        </Typography>
-      </Box>
-      <Box sx={{ height: 160 }}>
-        {loading ? (
-          <Typography variant="body2" color="text.secondary">Memuat data...</Typography>
-        ) : error ? (
-          <Typography variant="body2" color="error.main">{error}</Typography>
-        ) : (
-          <Bar
-            data={getChartDataByField('diklat_fungsional', ['5 Kali', '4 Kali', '3 Kali', '2 Kali', '1 Kali', 'Belum'], { '5 Kali': '#2563eb', '4 Kali': '#2563eb', '3 Kali': '#2563eb', '2 Kali': '#2563eb', '1 Kali': '#2563eb', 'Belum': '#e53935' })}
-            options={chartOptions}
-          />
-        )
-      }
-      </Box>
-      <Button
-        variant="contained"
-        fullWidth
-        size="small"
-        onClick={() => handleDetailClick('diklat', 'Diklat Fungsional')}
-        sx={{
-          mt: 2,
-          background: 'linear-gradient(135deg, #5de0e6, #2563eb)',
-          color: '#fff',
-          fontWeight: 700,
-          fontSize: 13,
-          textTransform: 'none',
-          borderRadius: 2,
-          '&:hover': {
-            background: 'linear-gradient(135deg, #003a91, #1d4ed8)',
-          },
-        }}
-      >
-        Detail Diklat
-      </Button>
-    </CardContent>
-  </Card>
-</Grid>
+              <Card sx={{ borderRadius: 4, boxShadow: 3, minHeight: 320, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', p: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <SchoolIcon sx={{ color: '#2196f3', mr: 1, fontSize: 28 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#2196f3' }}>
+                      Diklat Fungsional
+                    </Typography>
+                  </Box>
+                  <Box sx={{ height: 160 }}>
+                    <Bar data={diklatFungsional} options={chartOptions} />
+                  </Box>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    size="small"
+                    onClick={() => handleDetailClick('diklat', 'Diklat Fungsional')}
+                    sx={{
+                      mt: 2,
+                      background: 'linear-gradient(135deg, #5de0e6, #2563eb)',
+                      color: '#fff',
+                      fontWeight: 700,
+                      fontSize: 13,
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #003a91, #1d4ed8)',
+                      },
+                    }}
+                  >
+                    Detail Diklat
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
 
             <Grid item xs={12} md={4}>
-  <Card sx={{ borderRadius: 4, boxShadow: 3, minHeight: 320, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', p: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <AssignmentIcon sx={{ color: '#2196f3', mr: 1, fontSize: 28 }} />
-        <Typography variant="h6" sx={{ fontWeight: 700, color: '#2196f3' }}>
-          Sertifikasi
-        </Typography>
-      </Box>
-      <Box sx={{ height: 180 }}>
-        {loading ? (
-  <Typography variant="body2" color="text.secondary">Memuat data...</Typography>
-) : error ? (
-  <Typography variant="body2" color="error.main">{error}</Typography>
-) : (
-  <Bar
-    data={getChartDataByField('sertifikasi', ['Oke', 'Belum', 'Expired', 'THS'], { 'Oke': '#43a047', 'Belum': '#2563eb', 'Expired': '#e53935', 'THS': '#9c27b0' })}
-    options={chartOptions}
-  />
-) }
-      </Box>
-      <Button
-        variant="contained"
-        fullWidth
-        size="small"
-        onClick={() => handleDetailClick('sertifikasi', 'Sertifikasi')}
-        sx={{
-          mt: 2,
-          background: 'linear-gradient(135deg, #5de0e6, #2563eb)',
-          color: '#fff',
-          fontWeight: 700,
-          fontSize: 13,
-          textTransform: 'none',
-          borderRadius: 2,
-          '&:hover': {
-            background: 'linear-gradient(135deg, #003a91, #1d4ed8)',
-          },
-        }}
-      >
-        Detail Sertifikasi
-      </Button>
-    </CardContent>
-  </Card>
-</Grid>
+              <Card sx={{ borderRadius: 4, boxShadow: 3, minHeight: 320, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', p: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <AssignmentIcon sx={{ color: '#2196f3', mr: 1, fontSize: 28 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#2196f3' }}>
+                      Sertifikasi
+                    </Typography>
+                  </Box>
+                  <Box sx={{ height: 180 }}>
+                    <Bar data={sertifikasi} options={chartOptions} />
+                  </Box>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    size="small"
+                    onClick={() => handleDetailClick('sertifikasi', 'Sertifikasi')}
+                    sx={{
+                      mt: 2,
+                      background: 'linear-gradient(135deg, #5de0e6, #2563eb)',
+                      color: '#fff',
+                      fontWeight: 700,
+                      fontSize: 13,
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #003a91, #1d4ed8)',
+                      },
+                    }}
+                  >
+                    Detail Sertifikasi
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
 
-{/* Bottom Row Charts */}
-<Grid item xs={12} md={6}>
-  <Card sx={{ borderRadius: 4, boxShadow: 3, minHeight: 320, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', p: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <EventIcon sx={{ color: '#2196f3', mr: 1, fontSize: 28 }} />
-        <Typography variant="h6" sx={{ fontWeight: 700, color: '#2196f3' }}>
-          TMT Pensiun
-        </Typography>
-      </Box>
-      <Box sx={{ height: 180 }}>
-        <Bar data={getChartDataByField('tmtPensiun', null, { 'Sudah': '#2563eb', 'Belum': '#e53935' })} options={chartOptions} />
-      </Box>
-      <Button
-        variant="contained"
-        fullWidth
-        size="small"
-        onClick={() => handleDetailClick('tmt', 'TMT Pensiun & Pendidikan')}
-        sx={{
-          mt: 2,
-          background: 'linear-gradient(135deg, #5de0e6, #2563eb)',
-          color: '#fff',
-          fontWeight: 700,
-          fontSize: 13,
-          textTransform: 'none',
-          borderRadius: 2,
-          '&:hover': {
-            background: 'linear-gradient(135deg, #003a91, #1d4ed8)',
-          },
-        }}
-      >
-        Detail TMT Pensiun
-      </Button>
-    </CardContent>
-  </Card>
-</Grid>
+            {/* Bottom Row Charts */}
+            <Grid item xs={12} md={6}>
+              <Card sx={{ borderRadius: 4, boxShadow: 3, minHeight: 320, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', p: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <EventIcon sx={{ color: '#2196f3', mr: 1, fontSize: 28 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#2196f3' }}>
+                      TMT Pensiun
+                    </Typography>
+                  </Box>
+                  <Box sx={{ height: 180 }}>
+                    <Bar data={tmtPensiun} options={chartOptions} />
+                  </Box>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    size="small"
+                    onClick={() => handleDetailClick('tmt', 'TMT Pensiun & Pendidikan')}
+                    sx={{
+                      mt: 2,
+                      background: 'linear-gradient(135deg, #5de0e6, #2563eb)',
+                      color: '#fff',
+                      fontWeight: 700,
+                      fontSize: 13,
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #003a91, #1d4ed8)',
+                      },
+                    }}
+                  >
+                    Detail TMT Pensiun
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
 
             <Grid item xs={12} md={6}>
               <Card sx={{ borderRadius: 4, boxShadow: 3, minHeight: 320, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -436,7 +580,7 @@ export default function ManpowerDataManage() {
                     </Typography>
                   </Box>
                   <Box sx={{ height: 180 }}>
-                    <Bar data={getChartDataByField('pendidikan', null, { 'SMA': '#2563eb', 'D3': '#43a047', 'S1': '#ffb300', 'S2': '#8e24aa', 'Lainnya': '#e53935' })} options={chartOptions} />
+                    <Bar data={pendidikan} options={chartOptions} />
                   </Box>
                   <Button
                     variant="contained"
@@ -485,45 +629,22 @@ export default function ManpowerDataManage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {loading ? (
-  <TableRow><TableCell colSpan={6}><Typography variant="body2" color="text.secondary">Memuat data...</Typography></TableCell></TableRow>
-) : error ? (
-  <TableRow><TableCell colSpan={6}><Typography variant="body2" color="error.main">{error}</Typography></TableCell></TableRow>
-) : manpowerData.length === 0 ? (
-  <TableRow><TableCell colSpan={6}><Typography variant="body2" color="text.secondary">Tidak ada data manpower.</Typography></TableCell></TableRow>
-) : (
-  manpowerData.map((row, index) => (
-    <TableRow key={index} hover>
-      <TableCell>{row.nipp}</TableCell>
-      <TableCell sx={{ fontWeight: 600 }}>{row.nama}</TableCell>
-      <TableCell>{row.jabatan}</TableCell>
-      <TableCell>{row.pensiun}</TableCell>
-      <TableCell>
-        <Chip
-          label={Array.isArray(row.dto) ? row.dto.map(d => d.nama || d).join(', ') : (row.dto || '-')}
-          size="small"
-          sx={{
-            ...getStatusColor(row.dto),
-            fontWeight: 600,
-            fontSize: 11,
-          }}
-        />
-      </TableCell>
-      <TableCell>
-        <Chip
-          label={Array.isArray(row.sertifikasi) ? row.sertifikasi.map(s => s.nama || s).join(', ') : (row.sertifikasi || '-')}
-          size="small"
-          sx={{
-            ...getStatusColor(row.sertifikasi),
-            fontWeight: 600,
-            fontSize: 11,
-          }}
-        />
-      </TableCell>
-    </TableRow>
-  ))
-)
-}
+                    {loadingManpower ? (
+                      <TableRow><TableCell colSpan={6} align="center">Loading...</TableCell></TableRow>
+                    ) : errorManpower ? (
+                      <TableRow><TableCell colSpan={6} align="center" style={{color: 'red'}}>{errorManpower}</TableCell></TableRow>
+                    ) : manpowerTable.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} align="center">Tidak ada data manpower</TableCell></TableRow>
+                    ) : manpowerTable.map((row, index) => (
+                      <TableRow key={index} hover>
+                        <TableCell>{row.nipp}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{row.nama}</TableCell>
+                        <TableCell>{row.jabatan}</TableCell>
+                        <TableCell>{row.tmt_pensiun || '-'}</TableCell>
+                        <TableCell>{Array.isArray(row.diklat) && row.diklat.length > 0 ? 'Sudah' : 'Belum'}</TableCell>
+                        <TableCell>{Array.isArray(row.sertifikasi) && row.sertifikasi.length > 0 ? (row.sertifikasi[0].status || '-') : '-'}</TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -579,30 +700,28 @@ export default function ManpowerDataManage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {loading ? (
-  <TableRow><TableCell colSpan={12}><Typography variant="body2" color="text.secondary">Memuat data...</Typography></TableCell></TableRow>
-) : error ? (
-  <TableRow><TableCell colSpan={12}><Typography variant="body2" color="error.main">{error}</Typography></TableCell></TableRow>
-) : (
-  manpowerData.filter(row => Array.isArray(row.diklat_fungsional) && row.diklat_fungsional.length > 0).map((row, index) => (
-    row.diklat_fungsional.map((diklat, idx) => (
-      <TableRow key={index + '-' + idx} hover>
-        <TableCell>{row.nipp}</TableCell>
-        <TableCell sx={{ fontWeight: 600 }}>{row.nama}</TableCell>
-        <TableCell>{row.jabatan}</TableCell>
-        <TableCell>{diklat.dtoPrs || '-'}</TableCell>
-        <TableCell>{diklat.dtoPms || '-'}</TableCell>
-        <TableCell>{diklat.t2Prs || '-'}</TableCell>
-        <TableCell>{diklat.t2Pms || '-'}</TableCell>
-        <TableCell>{diklat.t3Prs || '-'}</TableCell>
-        <TableCell>{diklat.t3Pms || '-'}</TableCell>
-        <TableCell>{diklat.t4Mps || '-'}</TableCell>
-        <TableCell>{diklat.smdp || '-'}</TableCell>
-        <TableCell>{diklat.jmdp || '-'}</TableCell>
-      </TableRow>
-    ))
-  ))
-)}
+                    {manpowerTable.map((row, idx) => (
+                      Array.isArray(row.diklat) && row.diklat.length > 0 ? row.diklat.map((d, i) => (
+                        <TableRow key={row.nipp + '-diklat-' + i}>
+                          <TableCell>{row.nipp}</TableCell>
+                          <TableCell>{row.nama}</TableCell>
+                          <TableCell>{row.jabatan}</TableCell>
+                          <TableCell>{d.dto_prs || '-'}</TableCell>
+                          <TableCell>{d.dto_pms || '-'}</TableCell>
+                          <TableCell>{d.t2_prs || '-'}</TableCell>
+                          <TableCell>{d.t2_pms || '-'}</TableCell>
+                          <TableCell>{d.t3_prs || '-'}</TableCell>
+                          <TableCell>{d.t3_pms || '-'}</TableCell>
+                          <TableCell>{d.t4_mps || '-'}</TableCell>
+                          <TableCell>{d.smdp || '-'}</TableCell>
+                          <TableCell>{d.jmdp || '-'}</TableCell>
+                        </TableRow>
+                      )) : (
+                        <TableRow key={row.nipp + '-diklat-empty'}>
+                          <TableCell colSpan={12} align="center">Tidak ada data diklat</TableCell>
+                        </TableRow>
+                      )
+                    ))}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -619,78 +738,74 @@ export default function ManpowerDataManage() {
                       <TableCell sx={{ color: '#fff', fontWeight: 700 }}>TANGGAL TERBIT</TableCell>
                       <TableCell sx={{ color: '#fff', fontWeight: 700 }}>NOMOR SERTIFIKAT</TableCell>
                       <TableCell sx={{ color: '#fff', fontWeight: 700 }}>BERLAKU SAMPAI</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>MASA BERLAKU</TableCell>
                       <TableCell sx={{ color: '#fff', fontWeight: 700 }}>STATUS</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {loading ? (
-  <TableRow><TableCell colSpan={9}><Typography variant="body2" color="text.secondary">Memuat data...</Typography></TableCell></TableRow>
-) : error ? (
-  <TableRow><TableCell colSpan={9}><Typography variant="body2" color="error.main">{error}</Typography></TableCell></TableRow>
-) : (
-  manpowerData.filter(row => Array.isArray(row.sertifikasi) && row.sertifikasi.length > 0).map((row, index) => (
-    row.sertifikasi.map((sertif, idx) => (
-      <TableRow key={index + '-' + idx} hover>
-        <TableCell>{row.nipp}</TableCell>
-        <TableCell sx={{ fontWeight: 600 }}>{row.nama}</TableCell>
-        <TableCell>{row.jabatan}</TableCell>
-        <TableCell>{sertif.nama || '-'}</TableCell>
-        <TableCell>{sertif.tanggalTerbit || '-'}</TableCell>
-        <TableCell>{sertif.nomorSertifikat || '-'}</TableCell>
-        <TableCell>{sertif.berlakuSampai || '-'}</TableCell>
-        <TableCell>{sertif.masaBerlaku || '-'}</TableCell>
-        <TableCell>
-          <Chip
-            label={sertif.status || '-'}
-            size="small"
-            sx={{
-              ...getStatusColor(sertif.status),
-              fontWeight: 600,
-              fontSize: 11,
-            }}
-          />
-        </TableCell>
-      </TableRow>
-    ))
-  ))
-)}
+                    {manpowerTable.map((row, idx) => (
+                      Array.isArray(row.sertifikasi) && row.sertifikasi.length > 0 ? row.sertifikasi.map((s, i) => (
+                        <TableRow key={row.nipp + '-sertifikasi-' + i}>
+                          <TableCell>{row.nipp}</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{row.nama}</TableCell>
+                          <TableCell>{row.jabatan}</TableCell>
+                          <TableCell>{s.jenis_sertifikat || s.sertifikasi || '-'}</TableCell>
+                          <TableCell>{s.tanggal_terbit ? new Date(s.tanggal_terbit).toLocaleDateString('id-ID', { timeZone: 'UTC' }) : '-'}</TableCell>
+                          <TableCell>{s.nomor_sertifikat || '-'}</TableCell>
+                          <TableCell>{s.berlaku_sampai ? new Date(s.berlaku_sampai).toLocaleDateString('id-ID', { timeZone: 'UTC' }) : (s.masa_aktif ? new Date(s.masa_aktif).toLocaleDateString('id-ID', { timeZone: 'UTC' }) : '-')}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={s.status || '-'}
+                              size="small"
+                              sx={{
+                                ...getStatusColor(s.status || ''),
+                                fontWeight: 600,
+                                fontSize: 11,
+                              }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      )) : (
+                        <TableRow key={row.nipp + '-sertifikasi-empty'}>
+                          <TableCell colSpan={8} align="center">Tidak ada data sertifikasi</TableCell>
+                        </TableRow>
+                      )
+                    ))}
                   </TableBody>
                 </Table>
               </TableContainer>
             )}
             {detailKategori === 'tmt' && (
-              <TableContainer component={Paper} sx={{ borderRadius: 2, mb: 1 }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow sx={{ backgroundColor: '#2196f3' }}>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>NIPP</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>NAMA</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>JABATAN</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>TMT PENSIUN</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 700 }}>PENDIDIKAN</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {loading ? (
-  <TableRow><TableCell colSpan={5}><Typography variant="body2" color="text.secondary">Memuat data...</Typography></TableCell></TableRow>
-) : error ? (
-  <TableRow><TableCell colSpan={5}><Typography variant="body2" color="error.main">{error}</Typography></TableCell></TableRow>
-) : (
-  manpowerData.filter(row => row.tmtPensiun || row.pendidikan).map((row, index) => (
-    <TableRow key={index} hover>
-      <TableCell>{row.nipp}</TableCell>
-      <TableCell sx={{ fontWeight: 600 }}>{row.nama}</TableCell>
-      <TableCell>{row.jabatan}</TableCell>
-      <TableCell>{row.tmtPensiun}</TableCell>
-      <TableCell>{row.pendidikan}</TableCell>
-    </TableRow>
-  ))
+  <TableContainer component={Paper} sx={{ borderRadius: 2, mb: 1 }}>
+    <Table size="small">
+      <TableHead>
+        <TableRow sx={{ backgroundColor: '#2196f3' }}>
+          <TableCell sx={{ color: '#fff', fontWeight: 700 }}>NIPP</TableCell>
+          <TableCell sx={{ color: '#fff', fontWeight: 700 }}>NAMA</TableCell>
+          <TableCell sx={{ color: '#fff', fontWeight: 700 }}>JABATAN</TableCell>
+          <TableCell sx={{ color: '#fff', fontWeight: 700 }}>PENDIDIKAN DIAKUI</TableCell>
+          <TableCell sx={{ color: '#fff', fontWeight: 700 }}>USIA</TableCell>
+          <TableCell sx={{ color: '#fff', fontWeight: 700 }}>TMT PENSIUN</TableCell>
+          <TableCell sx={{ color: '#fff', fontWeight: 700 }}>COUNTER PENSIUN</TableCell>
+          <TableCell sx={{ color: '#fff', fontWeight: 700 }}>KATEGORI PENSIUN</TableCell>
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {(manpowerTable || []).map((row, index) => (
+          <TableRow key={index} hover>
+            <TableCell>{row.nipp}</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>{row.nama}</TableCell>
+            <TableCell>{row.jabatan}</TableCell>
+            <TableCell>{row.pendidikan || '-'}</TableCell>
+            <TableCell>{row.usia !== undefined ? row.usia : '-'}</TableCell>
+            <TableCell>{row.tmt_pensiun ? new Date(row.tmt_pensiun).toLocaleDateString('id-ID', { timeZone: 'UTC' }) : '-'}</TableCell>
+            <TableCell>{row.counter_pensiun !== undefined ? row.counter_pensiun : '-'}</TableCell>
+            <TableCell>{row.kategori_pensiun || '-'}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </TableContainer>
 )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
           </CardContent>
         </Card>
       )}
