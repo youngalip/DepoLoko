@@ -26,4 +26,10 @@ app.use('/api/action-plan', require('./routes/actionPlanRoute')); // Integrasi A
 const sertifikatSioRoutes = require('./routes/sertifikatSioRoutes');
 app.use('/api/sertifikat-sio', sertifikatSioRoutes);
 
+// Routes Desty
+app.use('/api/locomotives', require('./routes/locomotiveRoutes'));
+app.use('/api/performance', require('./routes/performanceRoutes'));
+app.use('/api/fault-history', require('./routes/faultHistoryRoutes'));
+app.use('/api/component-usage', require('./routes/componentUsage'));
+
 app.listen(3001, () => console.log('Server running on port 3001'));

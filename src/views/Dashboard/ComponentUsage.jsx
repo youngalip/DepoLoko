@@ -141,8 +141,22 @@ const renderPieChart = (data, colors, title) => (
   </Paper>
 );
 
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import { Button } from '@mui/material';
+
 const ComponentUsage = () => {
   // === Filter States ===
+  // Import handler (dummy, bisa dihubungkan ke backend jika sudah ada endpoint)
+  const handleImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.name.endsWith('.csv') && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      alert('File type not supported. Please upload a CSV, XLSX, or XLS file.');
+      return;
+    }
+    alert(`File yang dipilih: ${file.name}`);
+    // TODO: Integrasi ke backend jika sudah ada endpoint
+  };
   const [componentSearch, setComponentSearch] = useState('');
   const [selectedComponents, setSelectedComponents] = useState([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -362,6 +376,23 @@ const ComponentUsage = () => {
         ))}
       </Grid>
 
+      {/* Import Button Area */}
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+        <Button
+          component="label"
+          variant="contained"
+          startIcon={<UploadFileIcon />}
+          sx={{ minWidth: 120, backgroundColor: '#2563eb', color: '#fff', boxShadow: 1, textTransform: 'none', mr: 2 }}
+        >
+          Import
+          <input
+            type="file"
+            accept=".csv, .xlsx, .xls"
+            hidden
+            onChange={handleImport}
+          />
+        </Button>
+      </Box>
       {/* Filter + Table Section */}
       <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
         <CardContent>
