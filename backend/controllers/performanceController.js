@@ -3,6 +3,32 @@ const Performance = require('../models/Performance');
 const Locomotive = require('../models/Locomotive');
 
 class PerformanceController {
+  static parseTimestamp(timestamp) {
+    try {
+      // Handle DD/MM/YYYY HH:MM format
+      const [datePart, timePart] = timestamp.split(' ');
+      const [day, month, year] = datePart.split('/');
+      const [hour, minute] = timePart.split(':');
+      
+      // Create proper Date object
+      const date = new Date(
+        parseInt(year), 
+        parseInt(month) - 1, // Month is 0-based
+        parseInt(day), 
+        parseInt(hour), 
+        parseInt(minute || '0')
+      );
+      
+      if (isNaN(date.getTime())) {
+        throw new Error(`Invalid date components`);
+      }
+      
+      return date;
+    } catch (error) {
+      throw new Error(`Cannot parse timestamp "${timestamp}": ${error.message}`);
+    }
+  }
+
   static async getChartData(req, res) {
     try {
       const { column, locomotive_ids, start_date, end_date } = req.query;
@@ -167,7 +193,7 @@ class PerformanceController {
         // Prepare performance data
         const performanceData = {
           locomotive_id: locomotive.id,
-          recorded_at: new Date(timestamp)
+          recorded_at: PerformanceController.parseTimestamp(timestamp)
         };
   
         // Map performance columns
