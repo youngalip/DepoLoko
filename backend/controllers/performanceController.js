@@ -1,4 +1,4 @@
-// controllers/performanceController.js - Updated with CSV import
+// controllers/performanceController.js - UPDATED with decimal comma support and better grouping
 const Performance = require('../models/Performance');
 const Locomotive = require('../models/Locomotive');
 
@@ -29,6 +29,17 @@ class PerformanceController {
     }
   }
 
+  // ⚠️ NEW: Parse number dengan support decimal comma (European format)
+  static parseNumber(value) {
+    if (!value || value === '') return null;
+    
+    // Convert comma decimal separator to dot
+    const normalizedValue = value.toString().replace(',', '.');
+    const parsed = parseFloat(normalizedValue);
+    
+    return isNaN(parsed) ? null : parsed;
+  }
+
   static async getChartData(req, res) {
     try {
       const { column, locomotive_ids, start_date, end_date } = req.query;
@@ -53,10 +64,14 @@ class PerformanceController {
         });
       }
 
+      console.log(`🔍 Getting chart data for column: ${column}, locomotives: ${locomotiveIds}, date range: ${start_date} to ${end_date}`);
+
       // Get chart data
       const data = await Performance.getChartData(column, locomotiveIds, start_date, end_date);
 
-      // Group data by locomotive
+      console.log(`📊 Raw data from database: ${data.length} rows`);
+
+      // ⚠️ UPDATED: Group data by locomotive untuk chart X-axis = locomotive_number
       const groupedData = {};
       data.forEach(row => {
         const key = `locomotive_${row.locomotive_number}`;
@@ -74,13 +89,45 @@ class PerformanceController {
         });
       });
 
+      // ⚠️ NEW: Aggregate data per locomotive untuk chart (X-axis = locomotive_number)
+      const chartData = {};
+      Object.keys(groupedData).forEach(key => {
+        const locoData = groupedData[key];
+        if (locoData.data.length > 0) {
+          // Calculate statistics per locomotive
+          const values = locoData.data.map(d => d.value).filter(v => v !== null && !isNaN(v));
+          
+          if (values.length > 0) {
+            const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
+            const latest = locoData.data[locoData.data.length - 1];
+            
+            chartData[key] = {
+              locomotive_id: locoData.locomotive_id,
+              locomotive_number: locoData.locomotive_number,
+              locomotive_series: locoData.locomotive_series,
+              // ⚠️ Data untuk chart (X-axis = locomotive_number, Y-axis = average/latest value)
+              data: [{
+                locomotive_number: locoData.locomotive_number,  // ⚠️ For X-axis
+                value: avg,                                      // ⚠️ For Y-axis (average)
+                latest_value: latest.value,                     // Latest value
+                count: values.length,                           // Number of data points
+                timestamp: latest.timestamp                     // Latest timestamp
+              }]
+            };
+          }
+        }
+      });
+
+      console.log(`📈 Processed chart data: ${Object.keys(chartData).length} locomotives`);
+
       res.json({
         success: true,
         column: column,
         column_info: availableColumns[column],
-        data: groupedData
+        data: chartData
       });
     } catch (error) {
+      console.error('❌ Error in getChartData:', error);
       res.status(500).json({
         success: false,
         message: error.message
@@ -104,7 +151,7 @@ class PerformanceController {
     }
   }
 
-  // NEW: CSV Import functionality
+  // CSV Import functionality
   static async importCSV(req, res) {
     try {
       if (!req.file) {
@@ -130,7 +177,7 @@ class PerformanceController {
     }
   }
 
-  // CSV Processing Logic
+  // ⚠️ UPDATED: CSV Processing Logic dengan decimal comma support
   static async processCSVData(csvText) {
     const lines = csvText.split('\n').filter(line => line.trim());
     
@@ -167,8 +214,11 @@ class PerformanceController {
     let successCount = 0;
     let errorCount = 0;
     const errors = [];
+
+    console.log(`📊 Processing CSV with ${lines.length - 1} data rows`);
+    console.log(`📋 Headers found: ${headers.slice(0, 10).join(', ')}...`);
   
-    // Process ALL data rows (not just first 3)
+    // Process ALL data rows
     for (let i = 1; i < lines.length; i++) {
       try {
         const values = lines[i].split(separator).map(v => v.trim().replace(/"/g, '').replace(/\r/g, ''));
@@ -196,12 +246,18 @@ class PerformanceController {
           recorded_at: PerformanceController.parseTimestamp(timestamp)
         };
   
-        // Map performance columns
+        // ⚠️ UPDATED: Map performance columns dengan decimal comma support
         PERFORMANCE_COLUMNS.forEach(dbColumn => {
           const csvColumn = Object.keys(COLUMN_MAPPING).find(key => COLUMN_MAPPING[key] === dbColumn);
           if (csvColumn && row[csvColumn]) {
-            const value = parseFloat(row[csvColumn]);
-            performanceData[dbColumn] = isNaN(value) ? null : value;
+            // ⚠️ Use parseNumber untuk support decimal comma
+            const value = PerformanceController.parseNumber(row[csvColumn]);
+            performanceData[dbColumn] = value;
+            
+            // Debug log untuk decimal comma cases
+            if (row[csvColumn].includes(',')) {
+              console.log(`🔄 Converted "${row[csvColumn]}" to ${value} for column ${dbColumn}`);
+            }
           } else {
             performanceData[dbColumn] = null;
           }
@@ -211,7 +267,9 @@ class PerformanceController {
         await Performance.insertRecord(performanceData);
         successCount++;
   
-        console.log(`✅ Imported row ${i}: ${locomotiveNumber} at ${timestamp}`);
+        if (i <= 5 || i % 100 === 0) { // Log first 5 dan every 100th
+          console.log(`✅ Imported row ${i}: ${locomotiveNumber} at ${timestamp}`);
+        }
   
       } catch (error) {
         errorCount++;
@@ -220,13 +278,13 @@ class PerformanceController {
       }
     }
   
-    console.log(`📊 Import completed: ${successCount} success, ${errorCount} errors`);
+    console.log(`📊 Performance Import completed: ${successCount} success, ${errorCount} errors`);
   
     return {
       total_rows: lines.length - 1,
       success_count: successCount,
       error_count: errorCount,
-      errors: errors.slice(0, 10)
+      errors: errors.slice(0, 10) // Show first 10 errors only
     };
   }  
 }

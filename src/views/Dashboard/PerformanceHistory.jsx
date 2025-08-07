@@ -18,6 +18,7 @@ import {
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { format } from "date-fns";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import RefreshIcon from '@mui/icons-material/Refresh'; // ⚠️ ADD Refresh icon
 import {
   LineChart,
   Line,
@@ -109,14 +110,24 @@ const referenceValues = {
   "ca_v": { min: 228, ideal: 235, max: 242 }
 };
 
+const handleRefreshData = () => {
+  if (selectedLocomotives.length > 0) {
+    console.log('🔄 Manual refresh triggered for:', selectedLocomotives);
+    fetchChartData();
+  } else {
+    setError("Please select at least one locomotive to refresh data.");
+  }
+};
+
+
 export default function PerformanceHistory() {
   const [locomotives, setLocomotives] = useState([]);
   const [loadingChart, setLoadingChart] = useState(false);
   const [chartData, setChartData] = useState([]);
   const [error, setError] = useState(null);
 
-  const [startDate, setStartDate] = useState(new Date('2024-01-01'));
-  const [endDate, setEndDate] = useState(new Date('2024-12-31'));
+  const [startDate, setStartDate] = useState(new Date('2025-01-01'));  // ⚠️ UPDATED to 2025
+  const [endDate, setEndDate] = useState(new Date('2025-12-31'));    // ⚠️ UPDATED to 2025
   const [includeToday, setIncludeToday] = useState(false);
   
   const [selectedLocomotives, setSelectedLocomotives] = useState([]);
@@ -147,15 +158,28 @@ export default function PerformanceHistory() {
     fetchLocomotives();
   }, []);
 
+  // ⚠️ AUTO-TRIGGER FILTERING ketika locomotives dimuat
+  useEffect(() => {
+    if (locomotives.length > 0 && currentTab) {
+      // Auto-select first 5 locomotives jika belum ada selection
+      if (selectedLocomotives.length === 0) {
+        const firstFiveLocos = locomotives.slice(0, 5).map(loco => loco.locomotive_number);
+        setSelectedLocomotives(firstFiveLocos);
+      }
+    }
+  }, [locomotives, currentTab]);
+
+  // ⚠️ AUTO-TRIGGER FILTERING ketika selection berubah
   useEffect(() => {
     if (locomotives.length > 0 && selectedLocomotives.length > 0 && currentTab) {
       console.log('🔄 Auto-fetching data for:', {
         locomotives: selectedLocomotives.length,
-        tab: currentTab
+        tab: currentTab,
+        selected: selectedLocomotives
       });
       fetchChartData();
     }
-  }, [locomotives, currentTab]);
+  }, [selectedLocomotives, currentTab, startDate, endDate]); // ⚠️ TRIGGER pada selection, tab, atau date change
 
   const fetchChartData = async () => {
     setLoadingChart(true);
@@ -381,7 +405,7 @@ export default function PerformanceHistory() {
               </Typography>
             </Popover>
 
-            {/* Locomotive Number Dropdown - SESUAI ORIGINAL */}
+            {/* Locomotive Number Dropdown - FIXED INSIDE DROPDOWN ONLY */}
             <Select
               value={selectedLocomotives}
               multiple
@@ -389,21 +413,86 @@ export default function PerformanceHistory() {
               onChange={(e) => setSelectedLocomotives(e.target.value)}
               renderValue={(selected) => {
                 if (selected.length === 0) return 'Locomotive Number';
+                if (selected.length === locomotives.length) return `All locomotives selected (${locomotives.length})`;
                 if (selected.length === 1) return selected[0];
                 return `${selected.length} locomotives selected`;
               }}
               sx={{ minWidth: 200 }}
-            >
-              <MenuItem value="">
-                <em>Select Locomotives</em>
-              </MenuItem>
+              MenuProps={{
+                PaperProps: {
+                  sx: { 
+                    maxHeight: 400,
+                    borderRadius: 2,
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                  }
+                }
+              }}
+            > 
+              {/* Individual Locomotives */}
               {locomotives.map(loco => (
                 <MenuItem key={loco.id} value={loco.locomotive_number}>
-                  <Checkbox checked={selectedLocomotives.indexOf(loco.locomotive_number) > -1} />
-                  {loco.locomotive_number}
+                  <Checkbox 
+                    checked={selectedLocomotives.indexOf(loco.locomotive_number) > -1}
+                    sx={{
+                      color: '#2563eb', // ⚠️ FIXED: Blue color sesuai theme
+                      '&.Mui-checked': { color: '#2563eb' },
+                    }}
+                  />
+                  <Typography sx={{ ml: 1, fontSize: '0.875rem' }}>
+                    {loco.locomotive_number}
+                  </Typography>
                 </MenuItem>
               ))}
             </Select>
+
+            {/* ⚠️ ADD: Status Display untuk feedback visual */}
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: 1,
+              minWidth: 200 
+            }}>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                backgroundColor: '#fff',
+                px: 2,
+                py: 1,
+                borderRadius: 2,
+                border: '1px solid #e2e8f0'
+              }}>
+                <Typography variant="body2" color="#64748b">Data Points:</Typography>
+                <Typography variant="body2" fontWeight={600}>{chartData.length}</Typography>
+              </Box>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                backgroundColor: selectedLocomotives.length === locomotives.length ? '#dcfce7' : 
+                               selectedLocomotives.length > 0 ? '#eff6ff' : '#fff',
+                px: 2,
+                py: 1,
+                borderRadius: 2,
+                border: `1px solid ${
+                  selectedLocomotives.length === locomotives.length ? '#22c55e' : 
+                  selectedLocomotives.length > 0 ? '#2563eb' : '#e2e8f0'
+                }`
+              }}>
+                <Typography variant="body2" color="#64748b">
+                  {selectedLocomotives.length === locomotives.length ? '✅ All Selected:' : 
+                   selectedLocomotives.length > 0 ? '🎯 Selected:' : 'Selected:'}
+                </Typography>
+                <Typography 
+                  variant="body2" 
+                  fontWeight={600}
+                  color={
+                    selectedLocomotives.length === locomotives.length ? '#22c55e' : 
+                    selectedLocomotives.length > 0 ? '#2563eb' : 'inherit'
+                  }
+                >
+                  {selectedLocomotives.length}/{locomotives.length}
+                </Typography>
+              </Box>
+            </Box>
           </Box>
 
           {/* Chart Title - SESUAI ORIGINAL */}
@@ -414,15 +503,46 @@ export default function PerformanceHistory() {
           {/* Chart Area - HORIZONTAL SCROLLABLE SESUAI ORIGINAL */}
           <Box sx={{ width: '100%', overflowX: 'auto', paddingRight: 10 }}>
             <Box sx={{ minWidth: 3000, pr: 10 }}>
-              {!loadingChart && chartData.length > 0 ? (
+              {loadingChart ? (
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  justifyContent: 'center', 
+                  alignItems: 'center', 
+                  height: 600,
+                  backgroundColor: '#f8fafc',
+                  borderRadius: 2,
+                  border: '2px dashed #cbd5e1'
+                }}>
+                  <Box sx={{ 
+                    width: 40, 
+                    height: 40, 
+                    border: '4px solid #e2e8f0',
+                    borderTop: '4px solid #2563eb',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                    '@keyframes spin': {
+                      '0%': { transform: 'rotate(0deg)' },
+                      '100%': { transform: 'rotate(360deg)' },
+                    }
+                  }} />
+                  <Typography variant="h6" sx={{ color: '#64748b', mt: 2 }}>
+                    Loading performance data...
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#94a3b8', textAlign: 'center', maxWidth: 400, mt: 1 }}>
+                    Fetching data for {selectedLocomotives.length} locomotive{selectedLocomotives.length !== 1 ? 's' : ''}: {selectedLocomotives.join(', ')}
+                  </Typography>
+                </Box>
+              ) : chartData.length > 0 ? (
                 <ResponsiveContainer width={3000} height={600}>
                   <LineChart 
                     data={chartData} 
                     margin={{ top: 20, right: 200, left: 0, bottom: 120 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
+                    {/* ⚠️ FIXED: X-axis menggunakan locomotive_number bukan date */}
                     <XAxis 
-                      dataKey="date" 
+                      dataKey="locomotive_number"  // ⚠️ CHANGED from "date" to "locomotive_number"
                       angle={-45} 
                       textAnchor="end" 
                       height={80} 
@@ -431,7 +551,7 @@ export default function PerformanceHistory() {
                     <YAxis domain={['dataMin - 0.5', 'dataMax + 0.5']} />
                     <Tooltip
                       formatter={(value) => [`${value}`, "Value"]}
-                      labelFormatter={(label) => `Time: ${label}`}
+                      labelFormatter={(label) => `Locomotive: ${label}`}  // ⚠️ UPDATED label
                     />
                     
                     {/* Reference Lines - WARNA SESUAI ORIGINAL */}
@@ -476,27 +596,54 @@ export default function PerformanceHistory() {
                       dataKey="value" 
                       stroke="#6A1B9A" 
                       strokeWidth={2} 
-                      dot 
+                      dot={{ 
+                        fill: "#6A1B9A", 
+                        strokeWidth: 0, 
+                        r: 4 
+                      }}
+                      activeDot={{ 
+                        r: 6, 
+                        fill: "#6A1B9A",
+                        stroke: "#fff",
+                        strokeWidth: 2
+                      }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
-              ) : loadingChart ? (
-                <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'center', 
-                  alignItems: 'center', 
-                  height: 600 
-                }}>
-                  <Typography>Loading...</Typography>
-                </Box>
               ) : (
                 <Box sx={{ 
                   display: 'flex', 
-                  justifyContent: 'center', 
-                  alignItems: 'center', 
-                  height: 600 
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: 600,
+                  backgroundColor: '#f8fafc',
+                  borderRadius: 2,
+                  border: '2px dashed #cbd5e1'
                 }}>
-                  <Typography>No data available</Typography>
+                  <Typography variant="h6" sx={{ color: '#64748b', mb: 1 }}>
+                    📊 No Data Available
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#94a3b8', textAlign: 'center', maxWidth: 400, mb: 2 }}>
+                    {selectedLocomotives.length === 0 
+                      ? 'Please select locomotive(s) to view performance data.'
+                      : 'No performance data found for the selected locomotives and date range.'
+                    }
+                  </Typography>
+                  {selectedLocomotives.length > 0 && (
+                    <Button 
+                      variant="outlined" 
+                      onClick={handleRefreshData}
+                      sx={{ 
+                        mt: 1, 
+                        textTransform: 'none',
+                        borderColor: '#2563eb',
+                        color: '#2563eb'
+                      }}
+                    >
+                      🔄 Retry
+                    </Button>
+                  )}
                 </Box>
               )}
             </Box>
