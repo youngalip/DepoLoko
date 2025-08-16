@@ -2,33 +2,99 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Box, Grid, Card, CardContent, Typography, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Checkbox, List, ListItem, ListItemIcon,
-  ListItemText, TextField, Divider
+  ListItemText, TextField, Divider, CircularProgress, Alert, Button, Snackbar
 } from '@mui/material';
 import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   BarChart, XAxis, YAxis, CartesianGrid, Bar, Line, Label
 } from "recharts";
-import countBy from "lodash/countBy";
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 
-// === Dummy Data ===
+// === API Service ===
+const API_BASE_URL = 'http://localhost:3001/api';
+
+const apiService = {
+  async getComponentUsage(filters = {}) {
+    try {
+      const params = new URLSearchParams();
+      Object.keys(filters).forEach(key => {
+        if (filters[key] && filters[key] !== '') {
+          if (Array.isArray(filters[key])) {
+            filters[key].forEach(value => params.append(key, value));
+          } else {
+            params.append(key, filters[key]);
+          }
+        }
+      });
+      
+      const response = await fetch(`${API_BASE_URL}/component-usage?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch component usage');
+      return response.json();
+    } catch (error) {
+      console.error('API Error - getComponentUsage:', error);
+      throw error;
+    }
+  },
+
+  async getLocomotives() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/component-usage/locomotives`);
+      if (!response.ok) throw new Error('Failed to fetch locomotives');
+      const result = await response.json();
+      return result.success ? result.data : [];
+    } catch (error) {
+      console.error('API Error - getLocomotives:', error);
+      return [];
+    }
+  },
+
+  async getMaintenanceTypes() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/component-usage/maintenance-types`);
+      if (!response.ok) throw new Error('Failed to fetch maintenance types');
+      const result = await response.json();
+      return result.success ? result.data : [];
+    } catch (error) {
+      console.error('API Error - getMaintenanceTypes:', error);
+      return [];
+    }
+  },
+
+  async importCSV(file) {
+    try {
+      const formData = new FormData();
+      formData.append('csvFile', file);
+      
+      const response = await fetch(`${API_BASE_URL}/component-usage/import`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) throw new Error('Failed to import CSV');
+      return response.json();
+    } catch (error) {
+      console.error('Import Error:', error);
+      throw error;
+    }
+  }
+};
+
+// === Utility Functions ===
+const countBy = (array, key) => {
+  return array.reduce((acc, item) => {
+    const value = item[key];
+    acc[value] = (acc[value] || 0) + 1;
+    return acc;
+  }, {});
+};
+
+// === Headers for table (same as original) ===
 const headers = [
   'Component', 'Part No', 'Description', 'Qty', 'Locomotive', 'Period', 'Maintenance Type',
   'Depo Location', 'Month', 'Year', 'SO Date', 'Invoice', 'Invoice Date', 'SKB', 'Part Type', 'Part Using'
 ];
 
-const dummyData = [
-  { partNo: '40168223', description: 'SPRING-SINGLE COIL', qty: 1, locomotive: 'CC 205 13 ...', period: 'CONDITION BASED', maintenance: 'UNSCHEDULE', depo: 'DEPO TNK', month: 'November', year: '2016', soDate: 'Nov 26, 2016', invoice: '93161...', invoiceDate: '-', skb: 'KET-02259', partType: 'PROTECTIVE PART', partUsing: 'PROTECTIVE PART', },
-  { partNo: '40173748', description: 'BR PIPE CNTRL PRTN', qty: 1, locomotive: 'CC 205 13 28', period: 'CORRECTIVE', maintenance: 'SUPERVISI', depo: 'DEPO THN', month: 'July', year: '2016', soDate: 'Jul 11, 2016', invoice: '-', invoiceDate: '-', skb: '-', partType: 'PROTECTIVE PART', partUsing: 'PROTECTIVE PART', },
-  { partNo: '8287827', description: 'BOLT HEX HEAD 1/2-20', qty: 4, locomotive: 'CC 205 13 27', period: 'P3', maintenance: 'SCHEDULE', depo: 'DEPO TNK', month: 'October', year: '2016', soDate: 'Oct 8, 2016', invoice: '-', invoiceDate: '2016-06-13', skb: '(KET-TDPPN-90002)', partType: 'PROTECTIVE PART', partUsing: 'PROTECTIVE PART', },
-  { partNo: '180122', description: 'BOLT...HEX HEAD 3/8-16', qty: 1, locomotive: 'CC 205 11 03', period: 'P36', maintenance: 'SCHEDULE', depo: 'DEPO TNK', month: 'December', year: '2020', soDate: 'Dec 1, 2020', invoice: '-', invoiceDate: '-', skb: '-', partType: 'PROTECTIVE PART', partUsing: 'PROTECTIVE PART', },
-  { partNo: '40139944', description: 'WASHER-DISC SPRING', qty: 10, locomotive: 'CC 205 13 43', period: 'P36', maintenance: 'SCHEDULE', depo: 'DEPO TNK', month: 'July', year: '2017', soDate: 'Jul 13, 2017', invoice: '93276133', invoiceDate: '-', skb: '(KET-TDPPN-90002)', partType: 'PROTECTIVE PART', partUsing: 'PROTECTIVE PART', },
-  { partNo: '40120514', description: 'EUI ASM', qty: 2, locomotive: 'CC 205 13 02', period: 'CONDITION BASED', maintenance: 'UNSCHEDULE', depo: 'DEPO TNK', month: 'October', year: '2018', soDate: 'Oct 8, 2018', invoice: '93482415', invoiceDate: '-', skb: '(KET-TDPPN-00005)', partType: 'PROTECTIVE PART', partUsing: 'PROTECTIVE PART', },
-  { partNo: '40125552', description: 'KNUCKLE-CPLR TYPE E', qty: 1, locomotive: 'CC 205 13 29', period: 'P3', maintenance: 'SCHEDULE', depo: 'DEPO TNK', month: 'March', year: '2016', soDate: 'Mar 8, 2016', invoice: '-', invoiceDate: '-', skb: '-', partType: 'PROTECTIVE PART', partUsing: 'PROTECTIVE PART', },
-  { partNo: '40029131', description: 'DIODE...SILICON - RECTIFIER BANK', qty: 1, locomotive: 'CC 205 13 09', period: 'P3', maintenance: 'SCHEDULE', depo: 'DEPO TNK', month: 'January', year: '2016', soDate: 'Jan 19, 2016', invoice: '-', invoiceDate: '-', skb: '-', partType: 'PROTECTIVE PART', partUsing: 'PROTECTIVE PART', },
-  { partNo: '5552495', description: 'Washer', qty: 1, locomotive: 'CC 205 13 43', period: 'P24', maintenance: 'SCHEDULE', depo: 'DEPO TNK', month: 'August', year: '2021', soDate: 'Aug 7, 2021', invoice: '-', invoiceDate: '-', skb: '-', partType: 'PROTECTIVE PART', partUsing: 'PROTECTIVE PART', },
-];
-
-// === Color Sets for Charts ===
+// === Color Sets for Charts (same as original) ===
 const colorSets = {
   period: ["#1976d2", "#f06292", "#81c784", "#ffb74d", "#ba68c8"],
   maintenance: ["#42a5f5", "#ce93d8", "#f48fb1"],
@@ -36,11 +102,12 @@ const colorSets = {
   year: ["#e57373", "#f06292", "#ba68c8", "#64b5f6", "#4db6ac", "#81c784", "#dce775", "#fff176", "#ffb74d", "#a1887f"],
 };
 
-// === Chart Data Generator ===
+// === Chart Data Generator (same as original) ===
 const generatePieData = (data, key) => {
   const count = countBy(data, key);
   return Object.entries(count).map(([name, value]) => ({ name, value }));
 };
+
 const generateParetoData = (data, key) => {
   const count = countBy(data, key);
   const entries = Object.entries(count)
@@ -62,10 +129,10 @@ const CustomParetoTooltip = ({ active, payload, label }) => {
       <Paper elevation={3} sx={{ p: 1 }}>
         <Typography variant="subtitle2" fontWeight="bold">{label}</Typography>
         <Typography variant="body2" sx={{ color: "#1976d2" }}>
-          - Record Count: <b>{record?.value}</b>
+          - Record Count: <strong>{record?.value}</strong>
         </Typography>
         <Typography variant="body2" sx={{ color: "#d32f2f" }}>
-          - Cumulative: <b>{cumulative?.value}%</b>
+          - Cumulative: <strong>{cumulative?.value}%</strong>
         </Typography>
       </Paper>
     );
@@ -98,65 +165,15 @@ const renderParetoChart = (data, title, lineName, onBarClick) => (
   </Paper>
 );
 
-const renderPieChart = (data, colors, title) => (
-  <Paper elevation={2} sx={{ p: 2, borderRadius: 2, minHeight: 350, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-    <Typography variant="h6" align="center" gutterBottom>{title}</Typography>
-    <ResponsiveContainer width="100%" height={300}>
-      <PieChart>
-        <Pie
-          data={data}
-          dataKey="value"
-          nameKey="name"
-          cx="50%"
-          cy="45%"
-          outerRadius={90}
-          label
-          onClick={(_, index) => {
-            // Ambil nama dari data[index] karena event PieChart tidak selalu mengirim payload slice
-            let selectedName = null;
-            if (index !== undefined && data[index]) {
-              selectedName = data[index].name;
-            }
-            if (selectedName) {
-              if (title === 'PERIOD') {
-                setSelectedPeriods([selectedName]);
-              } else if (title === 'MAINTENANCE TYPE') {
-                setSelectedMtcTypes([selectedName]);
-              } else if (title === 'DEPO LOCATION') {
-                setSelectedDepoLocs([selectedName]);
-              } else if (title === 'YEAR') {
-                setSelectedYears([selectedName]);
-              }
-            }
-          }}
-        >
-          {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
-          ))}
-        </Pie>
-        <RechartsTooltip />
-        <Legend layout="horizontal" verticalAlign="bottom" align="center" />
-      </PieChart>
-    </ResponsiveContainer>
-  </Paper>
-);
-
-import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { Button } from '@mui/material';
-
 const ComponentUsage = () => {
-  // === Filter States ===
-  // Import handler (dummy, bisa dihubungkan ke backend jika sudah ada endpoint)
-  const handleImport = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (!file.name.endsWith('.csv') && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-      alert('File type not supported. Please upload a CSV, XLSX, or XLS file.');
-      return;
-    }
-    alert(`File yang dipilih: ${file.name}`);
-    // TODO: Integrasi ke backend jika sudah ada endpoint
-  };
+  // === State Management (same structure as original) ===
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
+  
+  // Filter States (same as original)
   const [componentSearch, setComponentSearch] = useState('');
   const [selectedComponents, setSelectedComponents] = useState([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -214,84 +231,156 @@ const ComponentUsage = () => {
 
   const [selectedChartFilter, setSelectedChartFilter] = useState(null);
 
-  // === Unique Value Arrays ===
-  const components = [...new Set(dummyData.map((item) => item.description?.toUpperCase()))];
-  const partNos = [...new Set(dummyData.map((item) => item.partNo))];
-  const soDates = [...new Set(dummyData.map((item) => item.soDate))];
-  const locomotives = [...new Set(dummyData.map((item) => item.locomotive))];
-  const depoLocs = [...new Set(dummyData.map((item) => item.depo))];
-  const years = [...new Set(dummyData.map((item) => item.year))];
-  const months = [...new Set(dummyData.map((item) => item.month))];
-  const partUsings = [...new Set(dummyData.map((item) => item.partUsing))];
-  const partTypes = [...new Set(dummyData.map((item) => item.partType))];
-  const periods = [...new Set(dummyData.map((item) => item.period))];
+  // Dropdown options from API
+  const [locomotives, setLocomotives] = useState([]);
+  const [maintenanceTypes, setMaintenanceTypes] = useState([]);
 
-  // === Filtered Arrays ===
-  const filteredMtcTypes = [
-    { type: 'SCHEDULE', count: 20253 },
-    { type: 'UNSCHEDULE', count: 2463 },
-    { type: 'SUPERVISI', count: 1963 },
-    { type: 'null', count: 48 },
-  ].filter((item) => item.type.toLowerCase().includes(mtcTypeSearch.toLowerCase()));
-  const filteredSoDates = soDates.filter((date) => date?.toString().toLowerCase().includes(soDateSearch.toLowerCase()));
-  const filteredLocomotives = locomotives.filter((loc) => loc?.toString().toLowerCase().includes(locomotiveSearch.toLowerCase()));
-  const filteredDepoLocs = depoLocs.filter((depo) => depo?.toString().toLowerCase().includes(depoLocSearch.toLowerCase()));
-  const filteredYears = years.filter((year) => year?.toString().toLowerCase().includes(yearSearch.toLowerCase()));
-  const filteredMonths = months.filter((month) => month?.toString().toLowerCase().includes(monthSearch.toLowerCase()));
-  const filteredPartUsings = partUsings.filter((item) => item?.toString().toLowerCase().includes(partUsingSearch.toLowerCase()));
-  const filteredPartTypes = partTypes.filter((item) => item?.toString().toLowerCase().includes(partTypeSearch.toLowerCase()));
-  const filteredPeriods = periods.filter((item) => item?.toString().toLowerCase().includes(periodSearch.toLowerCase()));
+  // === Data Fetching ===
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const filters = {};
+      if (selectedLocomotives.length > 0) filters.locomotive = selectedLocomotives[0];
+      if (selectedMtcTypes.length > 0) filters.maintenanceType = selectedMtcTypes[0];
+      if (selectedDepoLocs.length > 0) filters.depoLocation = selectedDepoLocs[0];
+      if (selectedYears.length > 0) filters.year = selectedYears[0];
+      if (selectedMonths.length > 0) filters.month = selectedMonths[0];
+      
+      const response = await apiService.getComponentUsage(filters);
+      
+      if (response.success) {
+        setData(response.data || []);
+      } else {
+        throw new Error(response.message || 'Failed to fetch data');
+      }
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err.message);
+      setData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedLocomotives, selectedMtcTypes, selectedDepoLocs, selectedYears, selectedMonths]);
 
-  // === Filter Logic ===
+  const fetchDropdownOptions = useCallback(async () => {
+    try {
+      const [locomotivesRes, maintenanceRes] = await Promise.all([
+        apiService.getLocomotives(),
+        apiService.getMaintenanceTypes()
+      ]);
+      
+      setLocomotives(locomotivesRes);
+      setMaintenanceTypes(maintenanceRes);
+    } catch (err) {
+      console.error('Error fetching dropdown options:', err);
+      setLocomotives([]);
+      setMaintenanceTypes([]);
+    }
+  }, []);
+
+  // === Effects ===
+  useEffect(() => {
+    fetchData();
+    fetchDropdownOptions();
+  }, [fetchData, fetchDropdownOptions]);
+
+  useEffect(() => {
+    fetchData();
+  }, [selectedLocomotives, selectedMtcTypes, selectedDepoLocs, selectedYears, selectedMonths]);
+
+  // === Generate derived data (same logic as original) ===
+  const components = [...new Set(data.map((item) => item.description?.toUpperCase()))];
+  const partNos = [...new Set(data.map((item) => item.part_no))];
+  const soDates = [...new Set(data.map((item) => item.so_date))];
+  const depoLocs = [...new Set(data.map((item) => item.depo))];
+  const years = [...new Set(data.map((item) => item.year))];
+  const months = [...new Set(data.map((item) => item.month))];
+  const partUsings = [...new Set(data.map((item) => item.part_using))];
+  const partTypes = [...new Set(data.map((item) => item.part_type))];
+  const periods = [...new Set(data.map((item) => item.period))];
+
+  // === Filter Logic (same as original) ===
   const handleToggle = (stateSetter, selected, value) => {
     stateSetter((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
   };
+  
   const filteredComponents = components.filter((component) => component.toLowerCase().includes(componentSearch.toLowerCase()));
   const filteredPartNos = partNos.filter((no) => no?.toString().toLowerCase().includes(partNoSearch.toLowerCase()));
 
-  const filteredData = dummyData.filter((item) => {
+  const filteredData = data.filter((item) => {
     const name = item.description?.toUpperCase();
     if (selectedComponents.length > 0 && !selectedComponents.includes(name)) return false;
-    if (selectedPartNos.length > 0 && !selectedPartNos.includes(item.partNo)) return false;
-    if (selectedMtcTypes.length > 0 && !selectedMtcTypes.includes(item.maintenance)) return false;
-    if (selectedSoDates.length > 0 && !selectedSoDates.includes(item.soDate)) return false;
-    if (selectedLocomotives.length > 0 && !selectedLocomotives.includes(item.locomotive)) return false;
-    if (selectedDepoLocs.length > 0 && !selectedDepoLocs.includes(item.depo)) return false;
-    if (selectedYears.length > 0 && !selectedYears.includes(item.year)) return false;
-    if (selectedMonths.length > 0 && !selectedMonths.includes(item.month)) return false;
-    if (selectedPartUsings.length > 0 && !selectedPartUsings.includes(item.partUsing)) return false;
-    if (selectedPartTypes.length > 0 && !selectedPartTypes.includes(item.partType)) return false;
+    if (selectedPartNos.length > 0 && !selectedPartNos.includes(item.part_no)) return false;
+    if (selectedSoDates.length > 0 && !selectedSoDates.includes(item.so_date)) return false;
+    if (selectedPartUsings.length > 0 && !selectedPartUsings.includes(item.part_using)) return false;
+    if (selectedPartTypes.length > 0 && !selectedPartTypes.includes(item.part_type)) return false;
     if (selectedPeriods.length > 0 && !selectedPeriods.includes(item.period)) return false;
     return true;
   });
 
+  // === Import Handler ===
+  const handleImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith('.csv') && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      setError('File type not supported. Please upload CSV, XLSX, or XLS file.');
+      return;
+    }
+    
+    try {
+      setImporting(true);
+      setError(null);
+      
+      const response = await apiService.importCSV(file);
+      
+      if (response.success) {
+        setSuccessMessage(`Import successful! ${response.stats.success_count} records imported, ${response.stats.error_count} errors.`);
+        await fetchData();
+      } else {
+        throw new Error(response.message || 'Import failed');
+      }
+    } catch (err) {
+      console.error('Import error:', err);
+      setError(`Import failed: ${err.message}`);
+    } finally {
+      setImporting(false);
+      e.target.value = '';
+    }
+  };
+
+  // === Chart Event Handlers (same as original) ===
+  const handleBarClickDescription = useCallback((description) => {
+    const filtered = data.filter((item) => item.description?.toUpperCase() === description.toUpperCase());
+    setSelectedChartFilter(filtered);
+  }, [data]);
+
+  const handleBarClickLocomotive = useCallback((locomotive) => {
+    setSelectedLocomotives([locomotive]);
+    setSelectedChartFilter(data.filter((item) => item.locomotive === locomotive));
+  }, [data]);
+
+  // === Get Count Helper (same as original) ===
   const getCount = (label, value) => {
     switch (label) {
-      case 'COMPONENT': return dummyData.filter(d => d.description?.toUpperCase() === value).length;
-      case 'PART NO': return dummyData.filter(d => d.partNo === value).length;
-      case 'MTC. TYPE': return dummyData.filter(d => d.maintenance === value).length;
-      case 'SO DATE': return dummyData.filter(d => d.soDate === value).length;
-      case 'LOCOMOTIVE': return dummyData.filter(d => d.locomotive === value).length;
-      case 'DEPO LOC.': return dummyData.filter(d => d.depo === value).length;
-      case 'YEARS': return dummyData.filter(d => d.year === value).length;
-      case 'MONTH': return dummyData.filter(d => d.month === value).length;
-      case 'PART USING': return dummyData.filter(d => d.partUsing === value).length;
-      case 'PART TYPE': return dummyData.filter(d => d.partType === value).length;
-      case 'PERIOD': return dummyData.filter(d => d.period === value).length;
+      case 'COMPONENT': return data.filter(d => d.description?.toUpperCase() === value).length;
+      case 'PART NO': return data.filter(d => d.part_no === value).length;
+      case 'MTC. TYPE': return data.filter(d => d.maintenance === value).length;
+      case 'SO DATE': return data.filter(d => d.so_date === value).length;
+      case 'LOCOMOTIVE': return data.filter(d => d.locomotive === value).length;
+      case 'DEPO LOC.': return data.filter(d => d.depo === value).length;
+      case 'YEARS': return data.filter(d => d.year === value).length;
+      case 'MONTH': return data.filter(d => d.month === value).length;
+      case 'PART USING': return data.filter(d => d.part_using === value).length;
+      case 'PART TYPE': return data.filter(d => d.part_type === value).length;
+      case 'PERIOD': return data.filter(d => d.period === value).length;
       default: return 0;
     }
   };
 
-  const handleBarClickDescription = useCallback((description) => {
-    const filtered = dummyData.filter((item) => item.description?.toUpperCase() === description.toUpperCase());
-    setSelectedChartFilter(filtered);
-  }, []);
-  const handleBarClickLocomotive = useCallback((locomotive) => {
-    setSelectedLocomotives([locomotive]);
-    setSelectedChartFilter(dummyData.filter((item) => item.locomotive === locomotive));
-  }, []);
-
-  // === Filter Dropdown Helper ===
+  // === Filter Dropdown Helper (same UI as original but with MUI) ===
   const renderFilter = (
     label, ref, isOpen, toggleOpen, searchValue, onSearchChange, items, selectedItems, onToggle
   ) => (
@@ -309,24 +398,23 @@ const ComponentUsage = () => {
                 return (
                   <ListItem key={item} button onClick={() => {
                     onToggle(item);
-                    // Integrate filter with chart for relevant fields
                     if (label === 'COMPONENT' || label === 'DESCRIPTION') {
-                      setSelectedChartFilter(dummyData.filter((d) => d.description?.toUpperCase() === item.toUpperCase()));
+                      setSelectedChartFilter(data.filter((d) => d.description?.toUpperCase() === item.toUpperCase()));
                     } else if (label === 'LOCOMOTIVE') {
                       setSelectedLocomotives([item]);
-                      setSelectedChartFilter(dummyData.filter((d) => d.locomotive === item));
+                      setSelectedChartFilter(data.filter((d) => d.locomotive === item));
                     } else if (label === 'PERIOD') {
                       setSelectedPeriods([item]);
-                      setSelectedChartFilter(dummyData.filter((d) => d.period === item));
+                      setSelectedChartFilter(data.filter((d) => d.period === item));
                     } else if (label === 'MAINTENANCE TYPE' || label === 'MTC. TYPE') {
                       setSelectedMtcTypes([item]);
-                      setSelectedChartFilter(dummyData.filter((d) => d.maintenance === item));
+                      setSelectedChartFilter(data.filter((d) => d.maintenance === item));
                     } else if (label === 'DEPO LOCATION' || label === 'DEPO LOC.') {
                       setSelectedDepoLocs([item]);
-                      setSelectedChartFilter(dummyData.filter((d) => d.depo === item));
+                      setSelectedChartFilter(data.filter((d) => d.depo === item));
                     } else if (label === 'YEAR' || label === 'YEARS') {
                       setSelectedYears([item]);
-                      setSelectedChartFilter(dummyData.filter((d) => d.year === item));
+                      setSelectedChartFilter(data.filter((d) => d.year === item));
                     } else {
                       setSelectedChartFilter(null);
                     }
@@ -345,7 +433,50 @@ const ComponentUsage = () => {
     </Box>
   );
 
-  // === Pie Chart Config ===
+  // === Pie Chart Render (same UI as original with click handlers) ===
+  const renderPieChart = (data, colors, title) => (
+    <Paper elevation={2} sx={{ p: 2, borderRadius: 2, minHeight: 350, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+      <Typography variant="h6" align="center" gutterBottom>{title}</Typography>
+      <ResponsiveContainer width="100%" height={300}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="45%"
+            outerRadius={90}
+            label
+            onClick={(_, index) => {
+              let selectedName = null;
+              if (index !== undefined && data[index]) {
+                selectedName = data[index].name;
+              }
+              if (selectedName) {
+                if (title === 'PERIOD') {
+                  setSelectedPeriods([selectedName]);
+                } else if (title === 'MAINTENANCE TYPE') {
+                  setSelectedMtcTypes([selectedName]);
+                } else if (title === 'DEPO LOCATION') {
+                  setSelectedDepoLocs([selectedName]);
+                } else if (title === 'YEAR') {
+                  setSelectedYears([selectedName]);
+                }
+              }
+            }}
+          >
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+            ))}
+          </Pie>
+          <RechartsTooltip />
+          <Legend layout="horizontal" verticalAlign="bottom" align="center" />
+        </PieChart>
+      </ResponsiveContainer>
+    </Paper>
+  );
+
+  // === Pie Chart Config (same as original) ===
   const pieCharts = [
     { title: "PERIOD", data: generatePieData(filteredData, "period"), colors: colorSets.period },
     { title: "MAINTENANCE TYPE", data: generatePieData(filteredData, "maintenance"), colors: colorSets.maintenance },
@@ -353,9 +484,28 @@ const ComponentUsage = () => {
     { title: "YEAR", data: generatePieData(filteredData, "year"), colors: colorSets.year },
   ];
 
-  // === Layout ===
+  // === Loading and Error States ===
+  if (loading) {
+    return (
+      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <CircularProgress size={60} />
+        <Typography variant="h6" sx={{ ml: 2 }}>Loading component usage data...</Typography>
+      </Box>
+    );
+  }
+
+  // === Main Render (exact same UI as original) ===
   return (
     <Box sx={{ p: { xs: 1, md: 3 } }}>
+      {/* Success/Error Snackbars */}
+      <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
+        <Alert onClose={() => setError(null)} severity="error">{error}</Alert>
+      </Snackbar>
+      
+      <Snackbar open={!!successMessage} autoHideDuration={4000} onClose={() => setSuccessMessage(null)}>
+        <Alert onClose={() => setSuccessMessage(null)} severity="success">{successMessage}</Alert>
+      </Snackbar>
+
       {/* Header */}
       <Typography variant="h4" fontWeight={700} sx={{ mb: 2, color: '#2563eb', letterSpacing: 1 }}>
         Component Usage
@@ -381,18 +531,26 @@ const ComponentUsage = () => {
         <Button
           component="label"
           variant="contained"
-          startIcon={<UploadFileIcon />}
+          startIcon={importing ? <CircularProgress size={20} color="inherit" /> : <UploadFileIcon />}
+          disabled={importing}
           sx={{ minWidth: 120, backgroundColor: '#2563eb', color: '#fff', boxShadow: 1, textTransform: 'none', mr: 2 }}
         >
-          Import
+          {importing ? 'Importing...' : 'Import'}
           <input
             type="file"
             accept=".csv, .xlsx, .xls"
             hidden
             onChange={handleImport}
+            disabled={importing}
           />
         </Button>
+        {data.length > 0 && (
+          <Typography variant="body2" color="text.secondary">
+            {data.length} records loaded
+          </Typography>
+        )}
       </Box>
+
       {/* Filter + Table Section */}
       <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
         <CardContent>
@@ -400,22 +558,24 @@ const ComponentUsage = () => {
             Filter Data & Data Table
           </Typography>
           <Divider sx={{ mb: 2 }} />
+          
           {/* Filter section */}
           <Box mb={3}>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6} md={3}>{renderFilter('COMPONENT', dropdownRef, dropdownOpen, setDropdownOpen, componentSearch, setComponentSearch, filteredComponents, selectedComponents, (value) => handleToggle(setSelectedComponents, selectedComponents, value))}</Grid>
               <Grid item xs={12} sm={6} md={3}>{renderFilter('PART NO', partNoRef, partNoOpen, setPartNoOpen, partNoSearch, setPartNoSearch, filteredPartNos, selectedPartNos, (value) => handleToggle(setSelectedPartNos, selectedPartNos, value))}</Grid>
-              <Grid item xs={12} sm={6} md={3}>{renderFilter('MTC. TYPE', mtcTypeRef, mtcTypeOpen, setMtcTypeOpen, mtcTypeSearch, setMtcTypeSearch, filteredMtcTypes.map(i=>i.type), selectedMtcTypes, (value) => handleToggle(setSelectedMtcTypes, selectedMtcTypes, value))}</Grid>
-              <Grid item xs={12} sm={6} md={3}>{renderFilter('SO DATE', soDateRef, soDateOpen, setSoDateOpen, soDateSearch, setSoDateSearch, filteredSoDates, selectedSoDates, (value) => handleToggle(setSelectedSoDates, selectedSoDates, value))}</Grid>
-              <Grid item xs={12} sm={6} md={3}>{renderFilter('LOCOMOTIVE', locomotiveRef, locomotiveOpen, setLocomotiveOpen, locomotiveSearch, setLocomotiveSearch, filteredLocomotives, selectedLocomotives, (value) => handleToggle(setSelectedLocomotives, selectedLocomotives, value))}</Grid>
-              <Grid item xs={12} sm={6} md={3}>{renderFilter('DEPO LOC.', depoLocRef, depoLocOpen, setDepoLocOpen, depoLocSearch, setDepoLocSearch, filteredDepoLocs, selectedDepoLocs, (value) => handleToggle(setSelectedDepoLocs, selectedDepoLocs, value))}</Grid>
-              <Grid item xs={12} sm={6} md={3}>{renderFilter('YEARS', yearRef, yearOpen, setYearOpen, yearSearch, setYearSearch, filteredYears, selectedYears, (value) => handleToggle(setSelectedYears, selectedYears, value))}</Grid>
-              <Grid item xs={12} sm={6} md={3}>{renderFilter('MONTH', monthRef, monthOpen, setMonthOpen, monthSearch, setMonthSearch, filteredMonths, selectedMonths, (value) => handleToggle(setSelectedMonths, selectedMonths, value))}</Grid>
-              <Grid item xs={12} sm={6} md={3}>{renderFilter('PART USING', partUsingRef, partUsingOpen, setPartUsingOpen, partUsingSearch, setPartUsingSearch, filteredPartUsings, selectedPartUsings, (value) => handleToggle(setSelectedPartUsings, selectedPartUsings, value))}</Grid>
-              <Grid item xs={12} sm={6} md={3}>{renderFilter('PART TYPE', partTypeRef, partTypeOpen, setPartTypeOpen, partTypeSearch, setPartTypeSearch, filteredPartTypes, selectedPartTypes, (value) => handleToggle(setSelectedPartTypes, selectedPartTypes, value))}</Grid>
-              <Grid item xs={12} sm={6} md={3}>{renderFilter('PERIOD', periodRef, periodOpen, setPeriodOpen, periodSearch, setPeriodSearch, filteredPeriods, selectedPeriods, (value) => handleToggle(setSelectedPeriods, selectedPeriods, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('MTC. TYPE', mtcTypeRef, mtcTypeOpen, setMtcTypeOpen, mtcTypeSearch, setMtcTypeSearch, maintenanceTypes, selectedMtcTypes, (value) => handleToggle(setSelectedMtcTypes, selectedMtcTypes, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('SO DATE', soDateRef, soDateOpen, setSoDateOpen, soDateSearch, setSoDateSearch, soDates.filter((date) => date?.toString().toLowerCase().includes(soDateSearch.toLowerCase())), selectedSoDates, (value) => handleToggle(setSelectedSoDates, selectedSoDates, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('LOCOMOTIVE', locomotiveRef, locomotiveOpen, setLocomotiveOpen, locomotiveSearch, setLocomotiveSearch, locomotives.filter((loc) => loc?.toString().toLowerCase().includes(locomotiveSearch.toLowerCase())), selectedLocomotives, (value) => handleToggle(setSelectedLocomotives, selectedLocomotives, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('DEPO LOC.', depoLocRef, depoLocOpen, setDepoLocOpen, depoLocSearch, setDepoLocSearch, depoLocs.filter((depo) => depo?.toString().toLowerCase().includes(depoLocSearch.toLowerCase())), selectedDepoLocs, (value) => handleToggle(setSelectedDepoLocs, selectedDepoLocs, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('YEARS', yearRef, yearOpen, setYearOpen, yearSearch, setYearSearch, years.filter((year) => year?.toString().toLowerCase().includes(yearSearch.toLowerCase())), selectedYears, (value) => handleToggle(setSelectedYears, selectedYears, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('MONTH', monthRef, monthOpen, setMonthOpen, monthSearch, setMonthSearch, months.filter((month) => month?.toString().toLowerCase().includes(monthSearch.toLowerCase())), selectedMonths, (value) => handleToggle(setSelectedMonths, selectedMonths, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('PART USING', partUsingRef, partUsingOpen, setPartUsingOpen, partUsingSearch, setPartUsingSearch, partUsings.filter((item) => item?.toString().toLowerCase().includes(partUsingSearch.toLowerCase())), selectedPartUsings, (value) => handleToggle(setSelectedPartUsings, selectedPartUsings, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('PART TYPE', partTypeRef, partTypeOpen, setPartTypeOpen, partTypeSearch, setPartTypeSearch, partTypes.filter((item) => item?.toString().toLowerCase().includes(partTypeSearch.toLowerCase())), selectedPartTypes, (value) => handleToggle(setSelectedPartTypes, selectedPartTypes, value))}</Grid>
+              <Grid item xs={12} sm={6} md={3}>{renderFilter('PERIOD', periodRef, periodOpen, setPeriodOpen, periodSearch, setPeriodSearch, periods.filter((item) => item?.toString().toLowerCase().includes(periodSearch.toLowerCase())), selectedPeriods, (value) => handleToggle(setSelectedPeriods, selectedPeriods, value))}</Grid>
             </Grid>
           </Box>
+          
           {/* Table section */}
           <TableContainer component={Paper} sx={{ maxHeight: 500 }}>
             <Table stickyHeader size="small">
@@ -432,7 +592,7 @@ const ComponentUsage = () => {
                 {(selectedChartFilter ?? filteredData).map((row, index) => (
                   <TableRow key={index}>
                     <TableCell>{row.description ?? '-'}</TableCell>
-                    <TableCell>{row.partNo ?? '-'}</TableCell>
+                    <TableCell>{row.part_no ?? '-'}</TableCell>
                     <TableCell>{row.description ?? '-'}</TableCell>
                     <TableCell>{row.qty ?? '-'}</TableCell>
                     <TableCell>{row.locomotive ?? '-'}</TableCell>
@@ -441,12 +601,12 @@ const ComponentUsage = () => {
                     <TableCell>{row.depo ?? '-'}</TableCell>
                     <TableCell>{row.month ?? '-'}</TableCell>
                     <TableCell>{row.year ?? '-'}</TableCell>
-                    <TableCell>{row.soDate ?? '-'}</TableCell>
+                    <TableCell>{row.so_date ?? '-'}</TableCell>
                     <TableCell>{row.invoice ?? '-'}</TableCell>
-                    <TableCell>{row.invoiceDate ?? '-'}</TableCell>
+                    <TableCell>{row.invoice_date ?? '-'}</TableCell>
                     <TableCell>{row.skb ?? '-'}</TableCell>
-                    <TableCell>{row.partType ?? '-'}</TableCell>
-                    <TableCell>{row.partUsing ?? '-'}</TableCell>
+                    <TableCell>{row.part_type ?? '-'}</TableCell>
+                    <TableCell>{row.part_using ?? '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

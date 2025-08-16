@@ -1,32 +1,13 @@
-// controllers/componentUsageController.js
+// controllers/componentUsageController.js - Simple Version
 const ComponentUsage = require('../models/ComponentUsage');
 
 class ComponentUsageController {
-  // GET /api/component-usage - Get component usage with filters and pagination
+  // GET /api/component-usage - Basic get data
   static async getComponentUsage(req, res) {
     try {
-      const {
-        startDate,
-        endDate,
-        locomotive,
-        partNo,
-        maintenanceType,
-        depoLocation,
-        year,
-        month,
-        page = 1,
-        limit = 50
-      } = req.query;
-
+      const { page = 1, limit = 50 } = req.query;
+      
       const filters = {
-        startDate,
-        endDate,
-        locomotive,
-        partNo,
-        maintenanceType,
-        depoLocation,
-        year,
-        month,
         page: parseInt(page),
         limit: parseInt(limit)
       };
@@ -48,79 +29,67 @@ class ComponentUsageController {
     }
   }
 
-  // GET /api/component-usage/summary - Get summary counters for filtering
-  static async getSummaryCounters(req, res) {
+  // GET distinct values for dropdowns
+  static async getLocomotives(req, res) {
     try {
-      const {
-        startDate,
-        endDate,
-        locomotive,
-        partNo,
-        maintenanceType,
-        depoLocation,
-        year,
-        month
-      } = req.query;
-
-      const filters = {
-        startDate,
-        endDate,
-        locomotive,
-        partNo,
-        maintenanceType,
-        depoLocation,
-        year,
-        month
-      };
-
-      const summary = await ComponentUsage.getSummaryCounters(filters);
-
-      res.json({
-        success: true,
-        data: summary
-      });
-
+      const locomotives = await ComponentUsage.getDistinctLocomotives();
+      res.json({ success: true, data: locomotives });
     } catch (error) {
-      console.error('Error fetching summary:', error);
-      res.status(500).json({
+      console.error('Error fetching locomotives:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  static async getMaintenanceTypes(req, res) {
+    try {
+      const maintenanceTypes = await ComponentUsage.getDistinctMaintenanceTypes();
+      res.json({ success: true, data: maintenanceTypes });
+    } catch (error) {
+      console.error('Error fetching maintenance types:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  // POST - Create new record (simple version)
+  static async createComponentUsage(req, res) {
+    try {
+      const componentData = req.body;
+      const result = await ComponentUsage.create(componentData);
+      
+      res.status(201).json({
+        success: true,
+        data: result,
+        message: 'Component usage created successfully'
+      });
+    } catch (error) {
+      console.error('Error creating component usage:', error);
+      res.status(400).json({
         success: false,
         message: error.message
       });
     }
   }
 
-  // GET /api/component-usage/analytics - Get analytics data
-  static async getAnalytics(req, res) {
-    try {
-      const { startDate, endDate } = req.query;
-
-      const filters = { startDate, endDate };
-      const analytics = await ComponentUsage.getAnalytics(filters);
-
-      res.json({
-        success: true,
-        data: analytics
-      });
-
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  // POST /api/component-usage/import - Import CSV
+  // POST /api/component-usage/import - Import CSV (Full Implementation)
   static async importCSV(req, res) {
     try {
+      console.log('📤 Import CSV endpoint hit');
+      
       if (!req.file) {
         return res.status(400).json({
           success: false,
-          message: 'No CSV file uploaded'
+          message: 'No file uploaded. Please select a CSV, XLSX, or XLS file.',
+          error_code: 'NO_FILE'
         });
       }
 
+      console.log('📁 File received:', {
+        filename: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype
+      });
+
+      // Process CSV content
       const csvText = req.file.buffer.toString('utf8');
       const result = await ComponentUsageController.processCSVData(csvText);
 
@@ -131,143 +100,162 @@ class ComponentUsageController {
       });
 
     } catch (error) {
-      console.error('Error importing CSV:', error);
+      console.error('Error in importCSV:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: 'Import failed: ' + error.message,
+        error_code: 'IMPORT_ERROR'
       });
     }
   }
 
-  // CSV Processing Logic
+  // CSV Processing Logic - Enhanced Separator Detection
   static async processCSVData(csvText) {
     const lines = csvText.split('\n').filter(line => line.trim());
     
-    // Auto-detect separator
+    // Enhanced separator detection
     let separator = ',';
-    if (lines[0].includes(';') && lines[0].split(';').length > lines[0].split(',').length) {
+    const firstLine = lines[0];
+    
+    // Count occurrences of each potential separator
+    const separatorCounts = {
+      ';': (firstLine.match(/;/g) || []).length,
+      ',': (firstLine.match(/,/g) || []).length,
+      '\t': (firstLine.match(/\t/g) || []).length
+    };
+    
+    // Choose separator with highest count
+    if (separatorCounts[';'] > separatorCounts[','] && separatorCounts[';'] > separatorCounts['\t']) {
       separator = ';';
-    } else if (lines[0].includes('\t')) {
+      console.log('🔍 Detected separator: semicolon (;)');
+    } else if (separatorCounts['\t'] > separatorCounts[',']) {
       separator = '\t';
+      console.log('🔍 Detected separator: tab (\\t)');
+    } else {
+      separator = ',';
+      console.log('🔍 Detected separator: comma (,)');
     }
     
     const headers = lines[0].split(separator).map(h => h.trim().replace(/"/g, '').replace(/\r/g, ''));
     
-    // Column mapping CSV → Database
+    console.log('📊 CSV Headers detected:', headers);
+    console.log('📊 Headers count:', headers.length);
+    
+    // Column mapping dengan prioritas LOCOMOTIVE
     const COLUMN_MAPPING = {
-      // Primary mappings
-      'LOCOMOTIVE': 'seri_lokomotif',
+      'LOCOMOTIVE': 'locomotive',
+      'LOCOMOTIVE NO': 'locomotive', 
+      'LOCOMOTIVE NUMBER': 'locomotive',
+      'SERI LOKOMOTIF': 'locomotive_fallback',
       'INVOICE DATE': 'invoice_date',
       'INVOICE': 'invoice',
       'SKB': 'skb',
       'PERIOD': 'period',
-      'DEPO LOCATION': 'depo_location',
+      'DEPO LOCATION': 'depo',
+      'DEPO': 'depo',
       'PART NO': 'part_no',
       'DESCRIPTION': 'description',
       'QTY': 'qty',
       'SO DATE': 'so_date',
       'MONTH': 'month',
       'YEAR': 'year',
-      'MAINTENANCE TYPE': 'maintenance_type',
-      'SERI LOKOMOTIF': 'seri_lokomotif', // Alternative mapping
+      'MAINTENANCE TYPE': 'maintenance',
       'PART USING': 'part_using',
-      'PART TYPE': 'part_type',
-      
-      // Alternative column names (fallbacks)
-      'Locomotive': 'seri_lokomotif',
-      'Invoice Date': 'invoice_date',
-      'Invoice': 'invoice',
-      'Skb': 'skb',
-      'Period': 'period',
-      'Depo Location': 'depo_location',
-      'Part No': 'part_no',
-      'Description': 'description',
-      'Qty': 'qty',
-      'SO Date': 'so_date',
-      'Month': 'month',
-      'Year': 'year',
-      'Maintenance Type': 'maintenance_type',
-      'Seri Lokomotif': 'seri_lokomotif',
-      'Part Using': 'part_using',
-      'Part Type': 'part_type'
+      'PART TYPE': 'part_type'
     };
 
-    // Find columns in headers
+    // Find columns dengan prioritas
     const columnIndexes = {};
+    const locomotivePriority = ['LOCOMOTIVE', 'LOCOMOTIVE NO', 'LOCOMOTIVE NUMBER', 'SERI LOKOMOTIF'];
+    let locomotiveColumnFound = false;
+
+    // Process non-locomotive columns
     Object.keys(COLUMN_MAPPING).forEach(csvColumn => {
+      if (locomotivePriority.includes(csvColumn.toUpperCase()) || csvColumn === 'locomotive_fallback') return;
+      
       const index = headers.findIndex(header => 
         header.toLowerCase().trim() === csvColumn.toLowerCase().trim()
       );
       if (index !== -1) {
         columnIndexes[COLUMN_MAPPING[csvColumn]] = index;
+        console.log(`✅ Mapped "${csvColumn}" to index ${index} (${headers[index]})`);
       }
     });
 
-    // Validate required columns exist
+    // Process locomotive dengan prioritas
+    for (const locomotiveCol of locomotivePriority) {
+      const index = headers.findIndex(header => 
+        header.toLowerCase().trim() === locomotiveCol.toLowerCase().trim()
+      );
+      if (index !== -1 && !locomotiveColumnFound) {
+        columnIndexes['locomotive'] = index;
+        locomotiveColumnFound = true;
+        console.log(`📍 Using '${locomotiveCol}' (index ${index}) for locomotive field`);
+        break;
+      }
+    }
+
+    console.log('🗺️ Final column mapping:', columnIndexes);
+
+    // Validate required columns
     const requiredColumns = ['part_no', 'description', 'qty'];
     const missingColumns = requiredColumns.filter(col => columnIndexes[col] === undefined);
     
     if (missingColumns.length > 0) {
-      throw new Error(`Missing required columns: ${missingColumns.join(', ')}. Available columns: ${headers.join(', ')}`);
+      console.error('❌ Missing columns:', missingColumns);
+      console.error('🔍 Available headers:', headers);
+      console.error('🔍 Mapping attempts:', Object.keys(COLUMN_MAPPING).map(col => ({
+        csvColumn: col,
+        foundAt: headers.findIndex(h => h.toLowerCase().trim() === col.toLowerCase().trim())
+      })));
+      throw new Error(`Missing required columns: ${missingColumns.join(', ')}. Available: ${headers.join(', ')}`);
     }
-
-    console.log(`📊 Component Usage CSV Analysis:`);
-    console.log(`   Total columns: ${headers.length}`);
-    console.log(`   Mapped columns: ${Object.keys(columnIndexes).length}`);
-    console.log(`   Column mapping:`, columnIndexes);
 
     let successCount = 0;
     let errorCount = 0;
     const errors = [];
 
-    // Process all data rows
+    // Process data rows
     for (let i = 1; i < lines.length; i++) {
       try {
         const values = lines[i].split(separator).map(v => v.trim().replace(/"/g, '').replace(/\r/g, ''));
         
-        // Extract required fields using column indexes with enhanced validation
+        // Debug first few rows
+        if (i <= 3) {
+          console.log(`🔍 Row ${i} values (${values.length}):`, values.slice(0, 5));
+        }
+        
+        // Extract required fields
         const partNo = values[columnIndexes['part_no']] || '';
         const description = values[columnIndexes['description']] || '';
         const qtyRaw = values[columnIndexes['qty']] || '';
 
-        // Enhanced validation with specific error messages
+        // Basic validation
         if (!partNo.trim()) {
-          throw new Error(`Missing required data: part_no is empty`);
+          throw new Error(`Missing part_no`);
         }
         if (!description.trim()) {
-          throw new Error(`Missing required data: description is empty`);
+          throw new Error(`Missing description`);
         }
 
-        // Enhanced qty parsing with NaN handling
+        // Parse quantity
         let qty = 0;
-        if (qtyRaw && qtyRaw !== '' && qtyRaw !== '--' && qtyRaw !== 'NaN' && qtyRaw.toLowerCase() !== 'null') {
+        if (qtyRaw && qtyRaw !== '' && qtyRaw !== '-') {
           const parsedQty = parseInt(qtyRaw);
           if (!isNaN(parsedQty) && parsedQty > 0) {
             qty = parsedQty;
           } else {
-            // Try parsing as float then convert to int
-            const floatQty = parseFloat(qtyRaw);
-            if (!isNaN(floatQty) && floatQty > 0) {
-              qty = Math.round(floatQty);
-            } else {
-              throw new Error(`Invalid quantity value: "${qtyRaw}" - must be a positive number`);
-            }
+            throw new Error(`Invalid quantity: "${qtyRaw}"`);
           }
         } else {
-          throw new Error(`Missing or invalid quantity: "${qtyRaw}"`);
+          throw new Error(`Missing quantity`);
         }
 
-        // Extract other fields with null handling
-        const invoiceDate = columnIndexes['invoice_date'] !== undefined ? 
-          values[columnIndexes['invoice_date']] : null;
-        const soDate = columnIndexes['so_date'] !== undefined ? 
-          values[columnIndexes['so_date']] : null;
-        
-        // Enhanced year parsing
+        // Parse year
         let year = null;
         if (columnIndexes['year'] !== undefined && values[columnIndexes['year']]) {
           const yearRaw = values[columnIndexes['year']].toString().trim();
-          if (yearRaw && yearRaw !== '--' && yearRaw !== 'NaN') {
+          if (yearRaw && yearRaw !== '-') {
             const parsedYear = parseInt(yearRaw);
             if (!isNaN(parsedYear) && parsedYear > 1900 && parsedYear < 2100) {
               year = parsedYear;
@@ -275,97 +263,72 @@ class ComponentUsageController {
           }
         }
 
-        // Prepare component usage data
+        // Prepare data
         const componentData = {
-          invoiceDate: invoiceDate ? ComponentUsageController.parseDate(invoiceDate) : null,
+          invoice_date: columnIndexes['invoice_date'] ? ComponentUsageController.parseDate(values[columnIndexes['invoice_date']]) : null,
           invoice: values[columnIndexes['invoice']] || '',
           skb: values[columnIndexes['skb']] || '',
           period: values[columnIndexes['period']] || '',
-          depoLocation: values[columnIndexes['depo_location']] || '',
-          partNo: partNo.trim(),
+          depo: values[columnIndexes['depo']] || '',
+          part_no: partNo.trim(),
           description: description.trim(),
           qty: qty,
-          soDate: soDate ? ComponentUsageController.parseDate(soDate) : null,
+          so_date: columnIndexes['so_date'] ? ComponentUsageController.parseDate(values[columnIndexes['so_date']]) : null,
           month: values[columnIndexes['month']] || '',
           year: year,
-          maintenanceType: values[columnIndexes['maintenance_type']] || '',
-          seriLokomotif: values[columnIndexes['seri_lokomotif']] || '',
-          partUsing: values[columnIndexes['part_using']] || '',
-          partType: values[columnIndexes['part_type']] || ''
+          maintenance: values[columnIndexes['maintenance']] || '',
+          locomotive: values[columnIndexes['locomotive']] || '',
+          part_using: values[columnIndexes['part_using']] || '',
+          part_type: values[columnIndexes['part_type']] || ''
         };
 
-        // Insert to database
+        // Debug first record
+        if (i === 1) {
+          console.log('🔍 First record to save:', componentData);
+        }
+
+        // Save to database
         await ComponentUsage.create(componentData);
         successCount++;
 
-        if (i % 1000 === 0) {
-          console.log(`✅ Processed ${i} rows, current: ${partNo} - ${description} (Qty: ${qty})`);
+        if (i % 5 === 0) {
+          console.log(`✅ Processed ${i} rows, current: ${partNo} - ${description}`);
         }
 
       } catch (error) {
         errorCount++;
         errors.push(`Row ${i + 1}: ${error.message}`);
-        if (errorCount <= 20) {
+        if (errorCount <= 5) {
           console.error(`❌ Error row ${i + 1}:`, error.message);
         }
       }
     }
 
-    console.log(`📊 Component Usage Import completed: ${successCount} success, ${errorCount} errors`);
+    console.log(`📊 Import completed: ${successCount} success, ${errorCount} errors`);
 
     return {
       total_rows: lines.length - 1,
       success_count: successCount,
       error_count: errorCount,
-      errors: errors.slice(0, 15), // Show first 15 errors
+      errors: errors.slice(0, 10), // Show first 10 errors
       column_analysis: {
         total_columns: headers.length,
         mapped_columns: Object.keys(columnIndexes).length,
         available_columns: headers,
-        mapped_fields: columnIndexes
+        used_locomotive_column: locomotiveColumnFound ? 'LOCOMOTIVE' : 'Not found',
+        separator_used: separator
       }
     };
   }
 
-  // Helper method to parse different date formats (Enhanced with Indonesian format)
+  // Simple date parser
   static parseDate(dateString) {
-    if (!dateString || dateString === '--' || dateString === '' || dateString === 'NaN' || dateString.toLowerCase() === 'null' || dateString === '-') return null;
+    if (!dateString || dateString === '-' || dateString === '') return null;
     
     dateString = dateString.trim();
     
-    // Skip obviously invalid date values
-    if (dateString.length < 3 || /^\d+[A-Z]+$/.test(dateString) || /^[A-Z]+\d*$/.test(dateString)) {
-      return null;
-    }
-    
     try {
-      // Format 1: DD AGUS YY / DD MMM YY (Indonesian format: "01 AGUS 25")
-      const ddMMMYYIndo = dateString.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{2})$/);
-      if (ddMMMYYIndo) {
-        const [, day, monthStr, year] = ddMMMYYIndo;
-        const monthMap = {
-          // English months
-          'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
-          'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11,
-          // Indonesian months
-          'januari': 0, 'februari': 1, 'maret': 2, 'april': 3, 'mei': 4, 'juni': 5,
-          'juli': 6, 'agustus': 7, 'agus': 7, 'september': 8, 'oktober': 9, 'november': 10, 'desember': 11,
-          // Short Indonesian
-          'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'mei': 4, 'jun': 5,
-          'jul': 6, 'agu': 7, 'sep': 8, 'okt': 9, 'nov': 10, 'des': 11
-        };
-        const month = monthMap[monthStr.toLowerCase()];
-        const fullYear = parseInt(year) < 50 ? 2000 + parseInt(year) : 1900 + parseInt(year);
-        
-        if (month !== undefined) {
-          const date = new Date(fullYear, month, parseInt(day));
-          if (!isNaN(date.getTime())) {
-            return date.toISOString().split('T')[0];
-          }
-        }
-      }
-
-      // Format 2: DD-MMM-YY (14-Jan-16) - Enhanced
+      // Format: DD-MMM-YY (04-Jan-16)
       const ddMMMYY = dateString.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2})$/);
       if (ddMMMYY) {
         const [, day, monthStr, year] = ddMMMYY;
@@ -384,173 +347,17 @@ class ComponentUsageController {
         }
       }
 
-      // Format 3: DD/MM/YYYY
-      const ddmmyyyy = dateString.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-      if (ddmmyyyy) {
-        const [, day, month, year] = ddmmyyyy;
-        const date = new Date(year, month - 1, day);
-        if (!isNaN(date.getTime())) {
-          return date.toISOString().split('T')[0];
-        }
-      }
-
-      // Format 4: DD/MM/YY (convert 2-digit year)
-      const ddmmyy = dateString.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
-      if (ddmmyy) {
-        const [, day, month, year] = ddmmyy;
-        const fullYear = parseInt(year) < 50 ? 2000 + parseInt(year) : 1900 + parseInt(year);
-        const date = new Date(fullYear, month - 1, day);
-        if (!isNaN(date.getTime())) {
-          return date.toISOString().split('T')[0];
-        }
-      }
-
-      // Format 5: YYYY-MM-DD (ISO)
-      const isoDate = dateString.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-      if (isoDate) {
-        const date = new Date(dateString);
-        if (!isNaN(date.getTime())) {
-          return date.toISOString().split('T')[0];
-        }
-      }
-
-      // Format 6: MM/DD/YYYY (US format)
-      const mmddyyyy = dateString.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-      if (mmddyyyy) {
-        const [, month, day, year] = mmddyyyy;
-        // Only use if day value makes sense for US format
-        if (parseInt(day) > 12 || parseInt(month) <= 12) {
-          const date = new Date(year, month - 1, day);
-          if (!isNaN(date.getTime())) {
-            return date.toISOString().split('T')[0];
-          }
-        }
-      }
-
-      // Format 7: DD-MMM-YYYY (14-Jan-2016)
-      const ddMMMYYYY = dateString.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
-      if (ddMMMYYYY) {
-        const [, day, monthStr, year] = ddMMMYYYY;
-        const monthMap = {
-          'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
-          'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
-        };
-        const month = monthMap[monthStr.toLowerCase()];
-        
-        if (month !== undefined) {
-          const date = new Date(parseInt(year), month, parseInt(day));
-          if (!isNaN(date.getTime())) {
-            return date.toISOString().split('T')[0];
-          }
-        }
-      }
-
-      // Format 8: Try native Date parsing as last resort (with validation)
+      // Try native Date parsing
       const nativeDate = new Date(dateString);
-      if (!isNaN(nativeDate.getTime()) && nativeDate.getFullYear() > 1900 && nativeDate.getFullYear() < 2100) {
+      if (!isNaN(nativeDate.getTime())) {
         return nativeDate.toISOString().split('T')[0];
       }
 
     } catch (error) {
-      // Silently handle date parsing errors - no need to log every invalid date
+      console.log(`Date parse error for "${dateString}":`, error.message);
     }
     
     return null;
-  }
-
-  // GET /api/component-usage/locomotives - Get distinct locomotives
-  static async getLocomotives(req, res) {
-    try {
-      const locomotives = await ComponentUsage.getDistinctLocomotives();
-
-      res.json({
-        success: true,
-        data: locomotives
-      });
-
-    } catch (error) {
-      console.error('Error fetching locomotives:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  // GET /api/component-usage/maintenance-types - Get distinct maintenance types
-  static async getMaintenanceTypes(req, res) {
-    try {
-      const maintenanceTypes = await ComponentUsage.getDistinctMaintenanceTypes();
-
-      res.json({
-        success: true,
-        data: maintenanceTypes
-      });
-
-    } catch (error) {
-      console.error('Error fetching maintenance types:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  // GET /api/component-usage/depo-locations - Get distinct depo locations
-  static async getDepoLocations(req, res) {
-    try {
-      const depoLocations = await ComponentUsage.getDistinctDepoLocations();
-
-      res.json({
-        success: true,
-        data: depoLocations
-      });
-
-    } catch (error) {
-      console.error('Error fetching depo locations:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  // GET /api/component-usage/years - Get distinct years
-  static async getYears(req, res) {
-    try {
-      const years = await ComponentUsage.getDistinctYears();
-
-      res.json({
-        success: true,
-        data: years
-      });
-
-    } catch (error) {
-      console.error('Error fetching years:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  // GET /api/component-usage/months - Get distinct months
-  static async getMonths(req, res) {
-    try {
-      const months = await ComponentUsage.getDistinctMonths();
-
-      res.json({
-        success: true,
-        data: months
-      });
-
-    } catch (error) {
-      console.error('Error fetching months:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
-    }
   }
 }
 
